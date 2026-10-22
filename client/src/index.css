@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap');
+
+:root {
+  --bg: #FBFBFA;
+  --bg-surface: #F5F5F3;
+  --bg-raised: #FFFFFF;
+  --border: #E5E2DC;
+  --border-strong: #D4D0C8;
+  --text: #1F1F1F;
+  --text-secondary: #6B6B6B;
+  --text-muted: #8A8780;
+  --accent: #1B7D5F;
+  --accent-light: #D1EDE3;
+  --accent-bg: #F0F7F4;
+  --warning: #C4702E;
+  --warning-light: #FAE6D8;
+  --warning-bg: #FDF5F0;
+  --error: #C44545;
+  --error-light: #FDE3E3;
+  --error-bg: #FEF2F2;
+  --editor-bg: #1F1F1F;
+  --editor-gutter: #2a2a2a;
+  --editor-line: #2d2d2d;
+  --editor-text: #D4D4D4;
+  --editor-comment: #6A9955;
+  --editor-keyword: #569CD6;
+  --editor-string: #CE9178;
+  --editor-number: #B5CEA8;
+  --font-serif: 'Source Serif 4', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Fira Code', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Scrollbar — thin, unobtrusive */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Active line highlight in code editor */
+.line-executing {
+  background: rgba(27, 125, 95, 0.15) !important;
+  border-left: 3px solid var(--accent) !important;
+}
+.line-next {
+  background: rgba(196, 112, 46, 0.10) !important;
+  border-left: 3px solid var(--warning) !important;
+}
+
+/* Variable flash animation */
+@keyframes varFlash {
+  0% { background-color: #D1EDE3; }
+  100% { background-color: transparent; }
+}
+.var-flash { animation: varFlash 1.2s ease-out forwards; }
+
+/* Frame card styles (PythonTutor-inspired) */
+.frame-card {
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+.frame-card.frame-active {
+  border-color: var(--accent);
+  box-shadow: 0 1px 4px rgba(27, 125, 95, 0.12);
+}
+.frame-header {
+  padding: 6px 12px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.frame-header-global {
+  background: #E8E7E5;
+  color: var(--text);
+}
+.frame-header-local {
+  background: var(--accent-light);
+  color: #0F4D3A;
+}
+
+/* Heap object card */
+.heap-card {
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+.heap-header {
+  padding: 4px 10px;
+  background: #F0F0ED;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+/* SVG arrow pointer dot */
+.pointer-dot {
+  cursor: pointer;
+  transition: fill 0.15s;
+}
+.pointer-dot:hover {
+  fill: var(--accent);
+}
+
+/* Flowchart node shapes */
+.flow-node {
+  transition: all 0.2s ease;
+}
+.flow-node-active {
+  filter: drop-shadow(0 0 6px rgba(27, 125, 95, 0.3));
+}
+
+/* Button resets */
+button { cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

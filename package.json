@@ -1,0 +1,15 @@
+{
+  "name": "cyber-tutor",
+  "version": "2.0.0",
+  "description": "Advanced visual dry-run code execution visualizer for Python, C, C++, Java, JavaScript",
+  "scripts": {
+    "dev": "node -e \"const { spawn } = require('child_process'); spawn('node', ['server/server.js'], { stdio: 'inherit', shell: true }); spawn('npm', ['run', 'dev'], { cwd: 'client', stdio: 'inherit', shell: true });\"",
+    "start": "node server/server.js",
+    "client": "npm --prefix client run dev",
+    "server": "node server/server.js",
+    "build": "npm --prefix client run build"
+  },
+  "keywords": ["pythontutor", "visualizer", "debugger", "compiler", "dryrun", "memory", "pointers"],
+  "author": "Antigravity",
+  "license": "MIT"
+}
