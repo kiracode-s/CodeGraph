@@ -186,6 +186,11 @@ app.post("/api/visualize", async (req, res) => {
           suggestion: "Fix the syntax or declaration error indicated by the compiler."
         };
         simulation.status = "error";
+      } else if (gccResult.success && typeof gccResult.output === "string" && gccResult.output.length > 0) {
+        simulation.stdout = gccResult.output;
+        if (simulation.steps && simulation.steps.length > 0) {
+          simulation.steps[simulation.steps.length - 1].stdout = gccResult.output;
+        }
       }
 
       return res.json(simulation);

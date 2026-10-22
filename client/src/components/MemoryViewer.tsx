@@ -35,8 +35,9 @@ export const MemoryViewer: React.FC<MemoryViewerProps> = ({
   // Recalculate pointer arrows whenever stack, heap, or step changes
   useEffect(() => {
     const updateArrows = () => {
-      if (!containerRef.current) return;
-      const containerRect = containerRef.current.getBoundingClientRect();
+      const container = containerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
       const newArrows: ArrowConnection[] = [];
 
       callStack.forEach((frame) => {
@@ -55,10 +56,10 @@ export const MemoryViewer: React.FC<MemoryViewerProps> = ({
             const anchorRect = anchorEl.getBoundingClientRect();
             const targetRect = targetEl.getBoundingClientRect();
 
-            const fromX = anchorRect.left + anchorRect.width / 2 - containerRect.left + containerRef.current.scrollLeft;
-            const fromY = anchorRect.top + anchorRect.height / 2 - containerRect.top + containerRef.current.scrollTop;
-            const toX = targetRect.left - containerRect.left + containerRef.current.scrollLeft;
-            const toY = targetRect.top + Math.min(30, targetRect.height / 2) - containerRect.top + containerRef.current.scrollTop;
+            const fromX = anchorRect.left + anchorRect.width / 2 - containerRect.left + container.scrollLeft;
+            const fromY = anchorRect.top + anchorRect.height / 2 - containerRect.top + container.scrollTop;
+            const toX = targetRect.left - containerRect.left + container.scrollLeft;
+            const toY = targetRect.top + Math.min(30, targetRect.height / 2) - containerRect.top + container.scrollTop;
 
             newArrows.push({
               id: `${frame.id}-${varName}->${targetIdKey}`,
@@ -86,10 +87,10 @@ export const MemoryViewer: React.FC<MemoryViewerProps> = ({
               const anchorRect = anchorEl.getBoundingClientRect();
               const targetRect = targetEl.getBoundingClientRect();
 
-              const fromX = anchorRect.left + anchorRect.width / 2 - containerRect.left + containerRef.current.scrollLeft;
-              const fromY = anchorRect.top + anchorRect.height / 2 - containerRect.top + containerRef.current.scrollTop;
-              const toX = targetRect.left - containerRect.left + containerRef.current.scrollLeft;
-              const toY = targetRect.top + 20 - containerRect.top + containerRef.current.scrollTop;
+              const fromX = anchorRect.left + anchorRect.width / 2 - containerRect.left + container.scrollLeft;
+              const fromY = anchorRect.top + anchorRect.height / 2 - containerRect.top + container.scrollTop;
+              const toX = targetRect.left - containerRect.left + container.scrollLeft;
+              const toY = targetRect.top + 20 - containerRect.top + container.scrollTop;
 
               newArrows.push({
                 id: `heap-${srcKey}-${fieldName}->${nextTarget}`,

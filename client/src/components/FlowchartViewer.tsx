@@ -29,6 +29,14 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
   const currentStep = steps[currentStepIndex];
   const activeLine = currentStep?.line ?? -1;
 
+  // Auto-scroll to active node on step transition
+  React.useEffect(() => {
+    const activeEl = document.getElementById(`flow-node-${currentStepIndex}`);
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [currentStepIndex]);
+
   // Build sequential & branching execution graph from steps
   const nodes: FlowNode[] = useMemo(() => {
     if (!steps || steps.length === 0) return [];
@@ -125,6 +133,7 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
             <React.Fragment key={node.id}>
               {/* Node Card */}
               <div
+                id={`flow-node-${node.stepIndex}`}
                 onClick={() => {
                   if (onSelectStep && node.stepIndex >= 0) {
                     sfx.playClick();

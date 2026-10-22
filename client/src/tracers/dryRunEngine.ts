@@ -361,35 +361,73 @@ export class DryRunEngine {
     }
   }
 
+  splitArgs(str: string): string[] {
+    const args: string[] = [];
+    let current = '';
+    let inQuote: string | null = null;
+    let depth = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str[i];
+      if ((char === '"' || char === "'") && (i === 0 || str[i - 1] !== '\\')) {
+        if (inQuote === char) inQuote = null;
+        else if (!inQuote) inQuote = char;
+      }
+      if (!inQuote) {
+        if (char === '(' || char === '[' || char === '{') depth++;
+        else if (char === ')' || char === ']' || char === '}') depth--;
+        else if (char === ',' && depth === 0) {
+          args.push(current.trim());
+          current = '';
+          continue;
+        }
+      }
+      current += char;
+    }
+    if (current.trim()) args.push(current.trim());
+    return args;
+  }
+
   evaluatePrintStatement(trimmed: string): string {
-    if (trimmed.startsWith('print(')) {
-      const match = trimmed.match(/print\((.*)\)/);
-      if (match) return this.resolveExpr(match[1]) + '\n';
+    // 1. Python print(...) or JS console.log(...)
+    if (trimmed.startsWith('print(') || trimmed.includes('console.log(')) {
+      const match = trimmed.match(/(?:print|console\.log)\s*\((.*)\)/);
+      if (match) {
+        const rawArgs = this.splitArgs(match[1]);
+        const resolved = rawArgs.map(arg => this.resolveExpr(arg.trim()));
+        return resolved.join(' ') + '\n';
+      }
     }
-    if (trimmed.includes('console.log')) {
-      const match = trimmed.match(/console\.log\((.*)\)/);
-      if (match) return this.resolveExpr(match[1]) + '\n';
-    }
+
+    // 2. Java System.out.println / print
     if (trimmed.includes('System.out.println')) {
-      const match = trimmed.match(/System\.out\.println\((.*)\)/);
-      if (match) return this.resolveExpr(match[1]) + '\n';
+      const match = trimmed.match(/System\.out\.println\s*\((.*)\)/);
+      if (match) {
+        return this.resolveExpr(match[1]) + '\n';
+      }
     }
     if (trimmed.includes('System.out.print')) {
-      const match = trimmed.match(/System\.out\.print\((.*)\)/);
-      if (match) return this.resolveExpr(match[1]);
+      const match = trimmed.match(/System\.out\.print\s*\((.*)\)/);
+      if (match) {
+        return this.resolveExpr(match[1]);
+      }
     }
+
+    // 3. C printf(...)
     if (trimmed.includes('printf')) {
       const match = trimmed.match(/printf\s*\(\s*["'](.*?)["'](?:\s*,\s*(.*))?\s*\)/);
       if (match) {
-        let fmt = match[1].replace(/\\n/g, '\n');
+        let fmt = match[1].replace(/\\n/g, '\n').replace(/\\t/g, '\t');
         if (match[2]) {
-          const args = match[2].split(',').map(a => this.resolveExpr(a.trim()));
+          const rawArgs = this.splitArgs(match[2]);
+          const args = rawArgs.map(a => this.resolveExpr(a.trim()));
           let argIdx = 0;
-          fmt = fmt.replace(/%[difs]/g, () => (args[argIdx++] !== undefined ? args[argIdx - 1] : ''));
+          fmt = fmt.replace(/%[difsxXp]/g, () => (args[argIdx++] !== undefined ? args[argIdx - 1] : ''));
         }
         return fmt;
       }
     }
+
+    // 4. C++ std::cout << ...
     if (trimmed.includes('cout')) {
       const parts = trimmed.split('<<').slice(1);
       let res = '';
@@ -405,21 +443,93 @@ export class DryRunEngine {
       }
       return res;
     }
+
     return 'Output\n';
   }
 
   resolveExpr(expr: string): string {
     if (!expr) return '';
     expr = expr.trim();
+
+    // Literal strings
     if ((expr.startsWith('"') && expr.endsWith('"')) || (expr.startsWith("'") && expr.endsWith("'"))) {
       return expr.slice(1, -1);
     }
+
+    // Pointer dereference *ptr
+    if (expr.startsWith('*') && !expr.includes(' ') && !expr.includes('+') && !expr.includes('-')) {
+      const ptrName = expr.slice(1);
+      const ptrVar = this.getVariable(ptrName);
+      if (ptrVar) {
+        const targetAddr = ptrVar.pointsTo || ptrVar.value;
+        // Check if pointing to a stack variable
+        for (const frame of this.callStack) {
+          for (const v of Object.values(frame.variables)) {
+            if (v.address === targetAddr) return String(v.value);
+          }
+        }
+        // Check if pointing to a heap block
+        if (this.heap[targetAddr]) {
+          const heapObj = this.heap[targetAddr];
+          if (heapObj.fields?.value) return String(heapObj.fields.value.value);
+          if (heapObj.items && heapObj.items.length > 0) return String(heapObj.items[0].value);
+        }
+        return String(targetAddr);
+      }
+    }
+
+    // Object or Struct field access: a->next or head.val or a->next->val
+    if (expr.includes('->') || (expr.includes('.') && !/^\d+\.\d+$/.test(expr))) {
+      const parts = expr.split(/->|\./);
+      let currentVar = this.getVariable(parts[0]);
+      let currentVal: any = currentVar ? (currentVar.pointsTo || currentVar.value) : null;
+
+      for (let pIdx = 1; pIdx < parts.length; pIdx++) {
+        const fieldName = parts[pIdx];
+        if (!currentVal) break;
+        if (this.heap[currentVal] && this.heap[currentVal].fields) {
+          const fieldObj = this.heap[currentVal].fields![fieldName];
+          if (fieldObj) {
+            if (pIdx === parts.length - 1) {
+              return String(fieldObj.value);
+            } else {
+              currentVal = fieldObj.pointsTo || fieldObj.value;
+            }
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    // Direct variable lookup
     const variable = this.getVariable(expr);
     if (variable) {
+      // If it is a reference to a heap list/array, format its items: [10, 20, 30]
+      if (variable.pointsTo && this.heap[variable.pointsTo]) {
+        const hObj = this.heap[variable.pointsTo];
+        if (hObj.type === 'list' || hObj.type === 'array') {
+          return '[' + (hObj.items || []).map(i => i.value).join(', ') + ']';
+        }
+      }
       return String(variable.value);
     }
+
+    // Build scope dictionary of current variables for arithmetic evaluation
+    const scopeVars: Record<string, any> = {};
+    for (const frame of this.callStack) {
+      for (const [k, v] of Object.entries(frame.variables)) {
+        if (/^[a-zA-Z_]\w*$/.test(k)) {
+          scopeVars[k] = v.value;
+        }
+      }
+    }
+
     try {
-      const evaluated = Function(`"use strict"; return (${expr})`)();
+      const varNames = Object.keys(scopeVars);
+      const varVals = Object.values(scopeVars);
+      const fn = new Function(...varNames, `"use strict"; return (${expr})`);
+      const evaluated = fn(...varVals);
       return String(evaluated);
     } catch {
       return expr;
@@ -939,36 +1049,86 @@ export class DryRunEngine {
   }
 
   handleGeneralAssignment(trimmed: string, lineNum: number) {
-    const assignMatch = trimmed.match(/(?:(?:int|float|double|char\*|bool|let|const|var)\s+)?([a-zA-Z_]\w*(?:\[\w+\])?(?:\.\w+)?)\s*=\s*(.+?);?$/);
+    // 1. Array/List mutations: b.append(40) or arr.push(40)
+    const appendMatch = trimmed.match(/([a-zA-Z_]\w*)\.(?:append|push)\s*\((.+?)\);?/);
+    if (appendMatch) {
+      const arrVarName = appendMatch[1];
+      const itemExpr = appendMatch[2];
+      const arrVar = this.getVariable(arrVarName);
+      const heapKey = arrVar?.pointsTo || arrVar?.value;
+      if (arrVar && heapKey && this.heap[heapKey]) {
+        const heapObj = this.heap[heapKey];
+        if (heapObj.items) {
+          const resolvedVal = this.resolveExpr(itemExpr);
+          const numVal = isNaN(Number(resolvedVal)) ? resolvedVal : Number(resolvedVal);
+          heapObj.items.push({
+            name: `[${heapObj.items.length}]`,
+            type: typeof numVal === 'number' ? 'int' : 'string',
+            value: numVal,
+            address: '0x' + (parseInt(heapObj.id, 16) + heapObj.items.length * 4).toString(16)
+          });
+          arrVar.isUpdated = true;
+          this.recordStep(lineNum, 'line', {
+            action: `List mutation: appended ${resolvedVal} to '${arrVarName}'`,
+            reason: 'Dynamic heap array expanded in-place',
+            memoryImpact: `Heap block ${heapKey} now holds ${heapObj.items.length} elements`,
+            nextPrediction: 'Proceeding to next statement'
+          }, [arrVarName]);
+          return;
+        }
+      }
+    }
+
+    // 2. General Assignment: var = expr or obj->field = expr or obj.field = expr
+    const assignMatch = trimmed.match(/(?:(?:int|float|double|char\*|bool|let|const|var|struct\s+\w+\*?)\s+)?([a-zA-Z_]\w*(?:\[\w+\])?(?:(?:\.|->)\w+)*)\s*=\s*(.+?);?$/);
     if (assignMatch) {
       const target = assignMatch[1];
       const expr = assignMatch[2];
 
+      // Handle field assignments: n1->val = 100 or head.next = n2 or curr = curr.next
       if (target.includes('->') || target.includes('.')) {
         const parts = target.split(/->|\./);
         const objVar = this.getVariable(parts[0]);
-        if (objVar && this.heap[objVar.value]) {
+        const heapKey = objVar?.pointsTo || objVar?.value;
+
+        if (objVar && heapKey && this.heap[heapKey]) {
           const field = parts[1];
           const resolved = this.resolveExpr(expr);
-          const heapObj = this.heap[objVar.value];
+          const heapObj = this.heap[heapKey];
           if (heapObj.fields) {
+            const targetHeapId = this.heap[resolved] ? resolved : (this.getVariable(resolved)?.pointsTo || null);
             heapObj.fields[field] = {
               name: field,
-              type: 'auto',
-              value: resolved,
-              pointsTo: this.heap[resolved] ? resolved : null
+              type: targetHeapId ? 'reference' : (isNaN(Number(resolved)) ? 'auto' : 'int'),
+              value: targetHeapId || (isNaN(Number(resolved)) ? resolved : Number(resolved)),
+              pointsTo: targetHeapId
             };
           }
           this.recordStep(lineNum, 'line', {
             action: `Field updated: ${target} = ${resolved}`,
-            reason: `Setting field '${field}' on heap object at ${objVar.value}`,
-            memoryImpact: `Heap object modified`,
+            reason: `Setting field '${field}' on heap object at ${heapKey}`,
+            memoryImpact: `Heap object ${heapKey} modified`,
             nextPrediction: 'Continuing'
           });
           return;
         }
       }
 
+      // Check for variable aliasing (e.g. b = a or curr = head)
+      const srcVar = this.getVariable(expr.trim());
+      if (srcVar && (srcVar.pointsTo || srcVar.type === 'reference' || srcVar.type === 'array' || srcVar.type === 'pointer')) {
+        const targetHeapAddr = srcVar.pointsTo || srcVar.value;
+        this.setVariable(target, srcVar.type, srcVar.value, null, targetHeapAddr);
+        this.recordStep(lineNum, 'line', {
+          action: `Reference assignment: '${target}' = '${expr.trim()}'`,
+          reason: 'Variable aliasing: both variables reference the exact same heap memory object',
+          memoryImpact: `Stack variable '${target}' bound to heap address ${targetHeapAddr}`,
+          nextPrediction: 'Proceeding'
+        }, [target]);
+        return;
+      }
+
+      // Regular expression resolution and variable assignment
       const resolved = this.resolveExpr(expr);
       const numVal = isNaN(Number(resolved)) ? resolved : Number(resolved);
       this.setVariable(target, typeof numVal === 'number' ? 'int' : 'string', numVal);

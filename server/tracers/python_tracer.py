@@ -105,6 +105,7 @@ class PythonTracer:
             "type": "reference",
             "value": obj_id,
             "targetId": obj_id,
+            "pointsTo": obj_id,
             "isReference": True
         }
 
