@@ -96,7 +96,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           </div>
 
           <span className={`text-[11px] font-mono hidden sm:inline ${
-            isDark ? 'text-[#858585]' : 'text-[#6B6B6B]'
+            isDark ? 'text-[#B0B0B0]' : 'text-[#4A4A4A]'
           }`}>
             {lines.length} lines • UTF-8
           </span>
@@ -105,22 +105,26 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         <div className="flex items-center gap-2">
           {/* Theme Switcher Button */}
           <button
+            type="button"
+            aria-label={`Switch to ${isDark ? 'VS Code Light+' : 'VS Code Dark+'}`}
             onClick={() => setEditorTheme(isDark ? 'vscode-light' : 'vscode-dark')}
-            className={`p-1 rounded transition-colors ${
-              isDark ? 'text-[#CCCCCC] hover:bg-[#333333]' : 'text-[#6B6B6B] hover:bg-[#EAE8E2]'
+            className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+              isDark ? 'text-[#CCCCCC] hover:bg-[#333333]' : 'text-[#4A4A4A] hover:bg-[#EAE8E2]'
             }`}
             title={`Switch to ${isDark ? 'VS Code Light+' : 'VS Code Dark+'}`}
           >
-            {isDark ? <Sun className="w-3.5 h-3.5 text-[#DCDCAA]" /> : <Moon className="w-3.5 h-3.5 text-[#569CD6]" />}
+            {isDark ? <Sun className="w-4 h-4 text-[#DCDCAA]" /> : <Moon className="w-4 h-4 text-[#569CD6]" />}
           </button>
 
           {isVisualizing ? (
             <button
+              type="button"
+              aria-label="Edit Code"
               onClick={() => {
                 sfx.playClick();
                 onToggleEdit();
               }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-sans transition-colors ${
+              className={`flex items-center gap-1 px-3 py-1.5 min-h-[28px] rounded text-xs font-sans transition-colors ${
                 isDark
                   ? 'bg-[#2D2D2D] hover:bg-[#3E3E3E] text-[#CCCCCC] border border-[#444444]'
                   : 'bg-[#FFFFFF] hover:bg-[#F5F5F3] text-[#1F1F1F] border border-[#D4D0C8]'
@@ -131,12 +135,14 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             </button>
           ) : (
             <button
+              type="button"
+              aria-label="Visualize execution"
               onClick={() => {
                 sfx.playClick();
                 onVisualize();
               }}
               disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#007ACC] hover:bg-[#0062A3] text-[#FFFFFF] text-xs font-sans font-medium transition-colors disabled:opacity-50 shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 min-h-[28px] rounded bg-[#007ACC] hover:bg-[#0062A3] text-[#FFFFFF] text-xs font-sans font-medium transition-colors disabled:opacity-50 shadow-xs"
             >
               <Play className="w-3 h-3 fill-current" />
               <span>{isLoading ? 'Compiling...' : 'Visualize (Ctrl+Enter)'}</span>
@@ -244,29 +250,37 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
           {/* Interactive Editable Transparent Textarea on Top (Active when not visualizing) */}
           {!isVisualizing && (
-            <textarea
-              ref={textareaRef}
-              value={code}
-              onChange={(e) => onChange(e.target.value)}
-              onScroll={handleScroll}
-              onKeyDown={handleKeyDown}
-              spellCheck={false}
-              className={`absolute inset-0 w-full h-full p-2 resize-none outline-none font-mono text-xs leading-6 whitespace-pre border-none overflow-auto bg-transparent ${
-                isDark ? 'text-transparent caret-[#FFFFFF]' : 'text-transparent caret-[#007ACC]'
-              }`}
-              style={{
-                tabSize: 4,
-                WebkitTextFillColor: 'transparent'
-              }}
-              placeholder="// Write code here..."
-            />
+            <>
+              <label htmlFor="code-editor-textarea" className="sr-only">
+                Source Code Editor
+              </label>
+              <textarea
+                id="code-editor-textarea"
+                name="code-editor-textarea"
+                aria-label="Source Code Editor"
+                ref={textareaRef}
+                value={code}
+                onChange={(e) => onChange(e.target.value)}
+                onScroll={handleScroll}
+                onKeyDown={handleKeyDown}
+                spellCheck={false}
+                className={`absolute inset-0 w-full h-full p-2 resize-none outline-none font-mono text-xs leading-6 whitespace-pre border-none overflow-auto bg-transparent ${
+                  isDark ? 'text-transparent caret-[#FFFFFF]' : 'text-transparent caret-[#007ACC]'
+                }`}
+                style={{
+                  tabSize: 4,
+                  WebkitTextFillColor: 'transparent'
+                }}
+                placeholder="// Write code here..."
+              />
+            </>
           )}
         </div>
       </div>
 
       {/* Editor Footer: VS Code Status Bar */}
-      <div className={`px-3 py-1 border-t flex items-center justify-between text-[11px] font-mono select-none ${
-        isDark ? 'bg-[#007ACC] text-[#FFFFFF] border-[#007ACC]' : 'bg-[#F5F5F3] text-[#6B6B6B] border-[#E5E2DC]'
+      <div className={`px-3 py-1.5 border-t flex items-center justify-between text-[11px] font-mono select-none ${
+        isDark ? 'bg-[#007ACC] text-[#FFFFFF] border-[#007ACC]' : 'bg-[#F5F5F3] text-[#4A4A4A] border-[#E5E2DC]'
       }`}>
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1 font-sans">
@@ -275,7 +289,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           <span className="flex items-center gap-1 font-sans">
             <span className="font-bold text-[#CE9178]">➜</span> Next
           </span>
-          <span className="hidden md:inline font-sans opacity-85">
+          <span className={`hidden md:inline font-sans ${isDark ? 'text-[#FFFFFF]' : 'text-[#4A4A4A]'}`}>
             Click line number to toggle breakpoint
           </span>
         </div>

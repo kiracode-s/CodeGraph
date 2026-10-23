@@ -231,25 +231,33 @@ export const RecursionTreeViewer: React.FC<RecursionTreeViewerProps> = ({
 
         <div className="flex items-center gap-2">
           {/* Mode Switcher: Tree vs Stack */}
-          <div className="flex items-center bg-[#FFFFFF] p-0.5 rounded border border-[#D4D0C8]">
+          <div className="flex items-center bg-[#FFFFFF] p-0.5 rounded border border-[#D4D0C8]" role="tablist" aria-label="Recursion View Modes">
             <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === 'tree'}
+              aria-label="Tree Graph view"
               onClick={() => {
                 sfx.playClick();
                 setViewMode('tree');
               }}
               className={`px-2 py-0.5 text-[11px] font-sans rounded transition-colors ${
-                viewMode === 'tree' ? 'bg-[#F5F5F3] font-bold text-[#1F1F1F]' : 'text-[#6B6B6B]'
+                viewMode === 'tree' ? 'bg-[#F5F5F3] font-bold text-[#1F1F1F]' : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
               }`}
             >
               Tree Graph
             </button>
             <button
+              type="button"
+              role="tab"
+              aria-selected={viewMode === 'stack'}
+              aria-label="Stack Slices view"
               onClick={() => {
                 sfx.playClick();
                 setViewMode('stack');
               }}
               className={`px-2 py-0.5 text-[11px] font-sans rounded transition-colors ${
-                viewMode === 'stack' ? 'bg-[#F5F5F3] font-bold text-[#1F1F1F]' : 'text-[#6B6B6B]'
+                viewMode === 'stack' ? 'bg-[#F5F5F3] font-bold text-[#1F1F1F]' : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
               }`}
             >
               Stack Slices

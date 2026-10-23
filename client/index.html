@@ -2,37 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='2'><path d='M4 17l6-6-6-6m8 14h8'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Step-by-step code execution visualizer. Write code in Python, C, C++, Java, or JavaScript and watch exactly how it runs — every variable, every frame, every pointer." />
     <title>Code Tracer — Step-by-step execution visualizer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              cream: { 50: '#FDFCFB', 100: '#FBFBFA', 200: '#F5F5F3', 300: '#EDEDE8', 400: '#E5E2DC', 500: '#D4D0C8' },
-              ink: { 50: '#F8F8F7', 100: '#E8E7E5', 200: '#BCBAB5', 300: '#8A8780', 400: '#6B6B6B', 500: '#4A4A4A', 600: '#333333', 700: '#1F1F1F', 800: '#171717', 900: '#0D0D0D' },
-              forest: { 50: '#F0F7F4', 100: '#D1EDE3', 200: '#A3DACA', 300: '#6BC0A7', 400: '#3DA385', 500: '#1B7D5F', 600: '#16654D', 700: '#0F4D3A' },
-              clay: { 50: '#FDF5F0', 100: '#FAE6D8', 200: '#F4CBAF', 300: '#E9A87A', 400: '#D98A52', 500: '#C4702E', 600: '#A35A24' },
-              brick: { 50: '#FEF2F2', 100: '#FDE3E3', 200: '#F9BFBF', 300: '#F19393', 400: '#E66060', 500: '#C44545', 600: '#A33636' }
-            },
-            fontFamily: {
-              serif: ['"Source Serif 4"', 'Georgia', 'serif'],
-              sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
-              mono: ['"IBM Plex Mono"', '"Fira Code"', 'monospace']
-            }
-          }
-        }
-      }
-    </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+    <meta name="description" content="Step-by-step code execution visualizer. Write code in Python, C, C++, Java, or JavaScript and watch exactly how it runs — every variable, every frame, every pointer." />
+    <meta name="theme-color" content="#FBFBFA" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://code-graph-zeta.vercel.app/" />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- Open Graph / SEO -->
+    <meta property="og:title" content="Code Tracer — Step-by-step execution visualizer" />
+    <meta property="og:description" content="Step-by-step code execution visualizer. Write code in Python, C, C++, Java, or JavaScript and watch exactly how it runs." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://code-graph-zeta.vercel.app/" />
+
+    <!-- Non-render-blocking Google Fonts with preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" />
+    </noscript>
   </head>
   <body class="bg-cream-100 text-ink-700 antialiased overflow-hidden">
-    <div id="root"></div>
+    <div id="root">
+      <div class="flex flex-col h-screen w-screen bg-[#FBFBFA] text-[#1F1F1F]">
+        <header class="w-full bg-[#FBFBFA] border-b border-[#E5E2DC] px-4 py-2.5 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded bg-[#1B7D5F] text-[#FBFBFA] flex items-center justify-center font-serif font-bold text-sm">λ</div>
+            <h1 class="font-serif font-bold text-base tracking-tight text-[#1F1F1F]">Code Tracer</h1>
+          </div>
+        </header>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

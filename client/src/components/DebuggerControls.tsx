@@ -52,8 +52,10 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
   return (
     <div className="w-full bg-[#FFFFFF] border-t border-[#E5E2DC] px-4 py-2 flex flex-col md:flex-row items-center justify-between gap-3 select-none z-30 shadow-xs">
       {/* 1. Step Navigation Buttons */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5" role="group" aria-label="Step Navigation">
         <button
+          type="button"
+          aria-label="Jump to Start"
           onClick={() => {
             sfx.playClick();
             onFirst();
@@ -66,6 +68,8 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
         </button>
 
         <button
+          type="button"
+          aria-label="Step Backward"
           onClick={() => {
             sfx.playClick();
             onPrev();
@@ -79,6 +83,8 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
         </button>
 
         <button
+          type="button"
+          aria-label={isPlaying ? "Pause playback" : "Auto-play execution"}
           onClick={() => {
             sfx.playClick();
             onPlayPause();
@@ -105,6 +111,8 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
         </button>
 
         <button
+          type="button"
+          aria-label="Step Forward"
           onClick={() => {
             sfx.playClick();
             onNext();
@@ -120,6 +128,8 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
         {/* Fast forward to next breakpoint */}
         {onNextBreakpoint && (
           <button
+            type="button"
+            aria-label="Fast forward to next breakpoint"
             onClick={() => {
               sfx.playClick();
               onNextBreakpoint();
@@ -134,6 +144,8 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
         )}
 
         <button
+          type="button"
+          aria-label="Jump to End"
           onClick={() => {
             sfx.playClick();
             onLast();
@@ -148,11 +160,20 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
 
       {/* 2. Scrubber Track & Step Counter */}
       <div className="flex-1 max-w-md w-full flex items-center gap-3">
+        <label htmlFor="step-scrubber" className="sr-only">
+          Execution Step Scrubber
+        </label>
         <input
+          id="step-scrubber"
+          name="step-scrubber"
           type="range"
           min="0"
           max={maxStep}
           value={currentStep}
+          aria-label="Execution step scrubber"
+          aria-valuemin={0}
+          aria-valuemax={maxStep}
+          aria-valuenow={currentStep}
           onChange={handleSliderChange}
           disabled={totalSteps <= 0}
           className="w-full h-1.5 bg-[#E5E2DC] rounded-lg appearance-none cursor-pointer accent-[#007ACC] disabled:opacity-35"
@@ -164,18 +185,21 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
 
       {/* 3. High-Speed Multipliers */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center bg-[#F5F5F3] p-0.5 rounded border border-[#E5E2DC]">
+        <div className="flex items-center gap-1 bg-[#F5F5F3] p-1 rounded border border-[#E5E2DC]" role="group" aria-label="Playback Speed">
           {speeds.map((s) => (
             <button
               key={s}
+              type="button"
+              aria-label={`Playback speed ${s}x`}
+              aria-pressed={speed === s}
               onClick={() => {
                 sfx.playClick();
                 onSpeedChange(s);
               }}
-              className={`px-2 py-0.5 text-[11px] font-mono rounded transition-colors flex items-center gap-0.5 ${
+              className={`min-w-[32px] min-h-[28px] px-2 py-1 text-[11px] font-mono rounded transition-colors flex items-center justify-center gap-0.5 ${
                 speed === s
                   ? 'bg-[#007ACC] font-bold text-[#FFFFFF] shadow-xs'
-                  : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                  : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
               }`}
               title={s === 20 ? 'Turbo Mode (Ultra-fast)' : `${s}x speed`}
             >
@@ -185,7 +209,7 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
           ))}
         </div>
 
-        <div className="hidden xl:flex items-center gap-1 text-[11px] text-[#8A8780] font-sans">
+        <div className="hidden xl:flex items-center gap-1 text-[11px] text-[#555555] font-sans">
           <kbd className="px-1 py-0.5 rounded bg-[#F5F5F3] border border-[#D4D0C8] font-mono text-[10px]">
             ←
           </kbd>

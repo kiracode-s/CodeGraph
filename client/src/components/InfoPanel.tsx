@@ -61,7 +61,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
         {currentStep ? (
           <div className="space-y-2.5 leading-relaxed text-[#4A4A4A]">
             <div>
-              <span className="text-[10px] font-mono font-bold uppercase text-[#8A8780] block mb-0.5">
+              <span className="text-[10px] font-mono font-bold uppercase text-[#555555] block mb-0.5">
                 Action Executed
               </span>
               <p className="font-mono text-xs font-semibold text-[#1F1F1F] bg-[#F5F5F3] p-1.5 rounded border border-[#E5E2DC]">
@@ -71,7 +71,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
 
             {currentStep.explanation.reason && (
               <div>
-                <span className="text-[10px] font-mono font-bold uppercase text-[#8A8780] block mb-0.5">
+                <span className="text-[10px] font-mono font-bold uppercase text-[#555555] block mb-0.5">
                   Semantic Explanation
                 </span>
                 <p className="text-xs text-[#1F1F1F]">
@@ -82,7 +82,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
 
             {currentStep.explanation.memoryImpact && (
               <div>
-                <span className="text-[10px] font-mono font-bold uppercase text-[#8A8780] block mb-0.5">
+                <span className="text-[10px] font-mono font-bold uppercase text-[#555555] block mb-0.5">
                   Memory Impact
                 </span>
                 <p className="text-xs text-[#16654D] bg-[#F0F7F4] p-1.5 rounded border border-[#D1EDE3]">
@@ -92,16 +92,16 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
             )}
 
             {nextLine && (
-              <div className="pt-2 border-t border-[#F5F5F3] text-[11px] text-[#8A8780] flex items-center gap-1 font-mono">
-                <span className="text-[#C4702E] font-bold">➜</span>
+              <div className="pt-2 border-t border-[#F5F5F3] text-[11px] text-[#4A4A4A] flex items-center gap-1 font-mono">
+                <span className="text-[#A35A24] font-bold">➜</span>
                 <span>Next up: Line {nextLine}</span>
               </div>
             )}
           </div>
         ) : (
-          <div className="text-center py-4 text-[#8A8780]">
+          <div className="text-center py-4 text-[#4A4A4A]">
             <p className="text-xs">No execution active</p>
-            <p className="text-[11px] text-[#A39E93] mt-0.5">
+            <p className="text-[11px] text-[#595959] mt-0.5">
               Click 'Visualize Execution' to inspect state
             </p>
           </div>
@@ -118,8 +118,10 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
 
           {stdout && (
             <button
+              type="button"
+              aria-label="Copy terminal output"
               onClick={handleCopyStdout}
-              className="p-1 rounded hover:bg-[#F5F5F3] text-[#6B6B6B] hover:text-[#1F1F1F]"
+              className="p-1 rounded hover:bg-[#F5F5F3] text-[#4A4A4A] hover:text-[#1F1F1F]"
               title="Copy output"
             >
               <Copy className="w-3 h-3" />
@@ -131,7 +133,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
           {stdout ? (
             <span className="text-[#A3DACA]">{stdout}</span>
           ) : (
-            <span className="text-[#6B6B6B] italic font-sans text-[11px]">
+            <span className="text-[#BCBAB5] italic font-sans text-[11px]">
               (No output produced yet)
             </span>
           )}

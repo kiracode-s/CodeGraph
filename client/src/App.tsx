@@ -1,11 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import confetti from 'canvas-confetti';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { Navbar } from './components/Navbar';
 import { CodeEditor } from './components/CodeEditor';
 import { MemoryViewer } from './components/MemoryViewer';
-import { FlowchartViewer } from './components/FlowchartViewer';
-import { RecursionTreeViewer } from './components/RecursionTreeViewer';
-import { InfoPanel } from './components/InfoPanel';
 import { DebuggerControls } from './components/DebuggerControls';
 import { Language, ExecutionTrace, StepState } from './types';
 import { CODE_TEMPLATES } from './templates';
@@ -13,6 +9,10 @@ import { DryRunEngine } from './tracers/dryRunEngine';
 import { sfx } from './utils/audio';
 import { downloadJsonTrace, exportElementSvg } from './utils/export';
 import { Layers, Activity, GitBranch, Info, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+
+const FlowchartViewer = lazy(() => import('./components/FlowchartViewer').then(m => ({ default: m.FlowchartViewer })));
+const RecursionTreeViewer = lazy(() => import('./components/RecursionTreeViewer').then(m => ({ default: m.RecursionTreeViewer })));
+const InfoPanel = lazy(() => import('./components/InfoPanel').then(m => ({ default: m.InfoPanel })));
 
 export const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('python');
@@ -149,11 +149,13 @@ export const App: React.FC = () => {
 
     if (nextIdx === trace.steps.length - 1) {
       setStatus('completed');
-      confetti({
-        particleCount: 30,
-        spread: 60,
-        origin: { y: 0.85 },
-        colors: ['#007ACC', '#C4702E', '#3DA385']
+      import('canvas-confetti').then((m) => {
+        m.default({
+          particleCount: 30,
+          spread: 60,
+          origin: { y: 0.85 },
+          colors: ['#007ACC', '#C4702E', '#3DA385']
+        });
       });
     }
   };
@@ -282,7 +284,7 @@ export const App: React.FC = () => {
       {/* 2. Main 2-Panel Working Area (Side-by-Side on Desktop/Tablet) */}
       <main className="flex-1 flex flex-col md:flex-row gap-3 p-3 overflow-hidden min-h-0 bg-[#F5F5F3]">
         {/* Left Panel: Code Editor (40% width) */}
-        <section className="w-full md:w-[40%] lg:w-[38%] h-full min-h-0 flex flex-col shrink-0">
+        <section aria-label="Code Editor" className="w-full md:w-[40%] lg:w-[38%] h-full min-h-0 flex flex-col shrink-0">
           <CodeEditor
             language={language}
             code={code}
@@ -302,12 +304,16 @@ export const App: React.FC = () => {
         {/* Right Panel: Visualization Center + Output (60% width) */}
         <section
           id="visualization-center"
+          aria-label="Execution Visualization"
           className="w-full md:w-[60%] lg:w-[62%] h-full min-h-0 flex flex-col bg-[#FFFFFF] rounded-lg border border-[#E5E2DC] shadow-xs overflow-hidden"
         >
           {/* Visualization Tab Bar */}
           <div className="flex items-center justify-between px-3 py-2 bg-[#F5F5F3] border-b border-[#E5E2DC] shrink-0">
-            <div className="flex items-center gap-1 overflow-x-auto">
+            <div className="flex items-center gap-1 overflow-x-auto" role="tablist" aria-label="Visualization Views">
               <button
+                role="tab"
+                aria-selected={activeTab === 'memory'}
+                aria-label="Frames and Objects View"
                 onClick={() => {
                   sfx.playClick();
                   setActiveTab('memory');
@@ -315,7 +321,7 @@ export const App: React.FC = () => {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors ${
                   activeTab === 'memory'
                     ? 'bg-[#FFFFFF] text-[#1F1F1F] shadow-xs border border-[#D4D0C8] font-semibold'
-                    : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                    : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 text-[#1B7D5F]" />
@@ -323,6 +329,9 @@ export const App: React.FC = () => {
               </button>
 
               <button
+                role="tab"
+                aria-selected={activeTab === 'flowchart'}
+                aria-label="Flowchart and Loops View"
                 onClick={() => {
                   sfx.playClick();
                   setActiveTab('flowchart');
@@ -330,7 +339,7 @@ export const App: React.FC = () => {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors ${
                   activeTab === 'flowchart'
                     ? 'bg-[#FFFFFF] text-[#1F1F1F] shadow-xs border border-[#D4D0C8] font-semibold'
-                    : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                    : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
                 }`}
               >
                 <Activity className="w-3.5 h-3.5 text-[#C4702E]" />
@@ -338,6 +347,9 @@ export const App: React.FC = () => {
               </button>
 
               <button
+                role="tab"
+                aria-selected={activeTab === 'callstack'}
+                aria-label="Recursion Tree View"
                 onClick={() => {
                   sfx.playClick();
                   setActiveTab('callstack');
@@ -345,7 +357,7 @@ export const App: React.FC = () => {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors ${
                   activeTab === 'callstack'
                     ? 'bg-[#FFFFFF] text-[#1F1F1F] shadow-xs border border-[#D4D0C8] font-semibold'
-                    : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                    : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
                 }`}
               >
                 <GitBranch className="w-3.5 h-3.5 text-[#569CD6]" />
@@ -353,6 +365,9 @@ export const App: React.FC = () => {
               </button>
 
               <button
+                role="tab"
+                aria-selected={activeTab === 'info'}
+                aria-label="Step Guide View"
                 onClick={() => {
                   sfx.playClick();
                   setActiveTab('info');
@@ -360,68 +375,73 @@ export const App: React.FC = () => {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors ${
                   activeTab === 'info'
                     ? 'bg-[#FFFFFF] text-[#1F1F1F] shadow-xs border border-[#D4D0C8] font-semibold'
-                    : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                    : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
                 }`}
               >
-                <Info className="w-3.5 h-3.5 text-[#6B6B6B]" />
+                <Info className="w-3.5 h-3.5 text-[#4A4A4A]" />
                 <span>Step Guide</span>
               </button>
             </div>
 
-            <div className="text-[11px] font-mono text-[#6B6B6B] shrink-0 ml-2">
+            <div className="text-[11px] font-mono text-[#4A4A4A] shrink-0 ml-2">
               {trace ? `${trace.totalSteps} steps` : 'Ready'}
             </div>
           </div>
 
           {/* Visualization Content Switcher */}
           <div className="flex-1 overflow-hidden p-2 min-h-0">
-            {activeTab === 'memory' && (
-              <MemoryViewer
-                language={language}
-                callStack={currentStep?.callStack || []}
-                heap={currentStep?.heap || {}}
-                changedVariables={currentStep?.changedVariables || []}
-                activeStep={currentStepIndex}
-              />
-            )}
-            {activeTab === 'flowchart' && (
-              <FlowchartViewer
-                steps={trace?.steps || []}
-                currentStepIndex={currentStepIndex}
-                onSelectStep={(idx) => {
-                  setCurrentStepIndex(idx);
-                  setStatus('visualizing');
-                }}
-              />
-            )}
-            {activeTab === 'callstack' && (
-              <RecursionTreeViewer
-                steps={trace?.steps || []}
-                currentStepIndex={currentStepIndex}
-                callStack={currentStep?.callStack || []}
-                onSelectStep={(idx) => {
-                  setCurrentStepIndex(idx);
-                  setStatus('visualizing');
-                }}
-              />
-            )}
-            {activeTab === 'info' && (
-              <InfoPanel
-                currentStep={currentStep}
-                nextStep={nextStep}
-                totalSteps={trace?.totalSteps || 0}
-                stdout={currentStep?.stdout || trace?.stdout || ''}
-                error={trace?.error}
-                status={status}
-              />
-            )}
+            <Suspense fallback={<div className="h-full flex items-center justify-center text-xs text-[#555555]">Loading module...</div>}>
+              {activeTab === 'memory' && (
+                <MemoryViewer
+                  language={language}
+                  callStack={currentStep?.callStack || []}
+                  heap={currentStep?.heap || {}}
+                  changedVariables={currentStep?.changedVariables || []}
+                  activeStep={currentStepIndex}
+                />
+              )}
+              {activeTab === 'flowchart' && (
+                <FlowchartViewer
+                  steps={trace?.steps || []}
+                  currentStepIndex={currentStepIndex}
+                  onSelectStep={(idx) => {
+                    setCurrentStepIndex(idx);
+                    setStatus('visualizing');
+                  }}
+                />
+              )}
+              {activeTab === 'callstack' && (
+                <RecursionTreeViewer
+                  steps={trace?.steps || []}
+                  currentStepIndex={currentStepIndex}
+                  callStack={currentStep?.callStack || []}
+                  onSelectStep={(idx) => {
+                    setCurrentStepIndex(idx);
+                    setStatus('visualizing');
+                  }}
+                />
+              )}
+              {activeTab === 'info' && (
+                <InfoPanel
+                  currentStep={currentStep}
+                  nextStep={nextStep}
+                  totalSteps={trace?.totalSteps || 0}
+                  stdout={currentStep?.stdout || trace?.stdout || ''}
+                  error={trace?.error}
+                  status={status}
+                />
+              )}
+            </Suspense>
           </div>
 
           {/* PythonTutor Style Docked Program Output Console at bottom */}
           <div className="border-t border-[#E5E2DC] bg-[#FFFFFF] shrink-0">
-            <div
+            <button
+              type="button"
               onClick={() => setIsOutputCollapsed(!isOutputCollapsed)}
-              className="px-3 py-1.5 bg-[#F5F5F3] flex items-center justify-between text-xs font-sans cursor-pointer hover:bg-[#EAE8E2]/60 select-none"
+              aria-expanded={!isOutputCollapsed}
+              aria-label="Toggle Program Output Console"
+              className="w-full text-left px-3 py-1.5 bg-[#F5F5F3] flex items-center justify-between text-xs font-sans cursor-pointer hover:bg-[#EAE8E2]/60 select-none border-0"
             >
               <div className="flex items-center gap-1.5 font-medium text-[#1F1F1F]">
                 <Terminal className="w-3.5 h-3.5 text-[#4A4A4A]" />
@@ -430,7 +450,7 @@ export const App: React.FC = () => {
                   <span className="w-2 h-2 rounded-full bg-[#1B7D5F]" />
                 )}
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-[#6B6B6B]">
+              <div className="flex items-center gap-2 text-[11px] text-[#4A4A4A]">
                 {currentStep?.explanation?.action && (
                   <span className="font-mono text-[10px] bg-[#E8E7E5] px-1.5 py-0.2 rounded truncate max-w-[240px]">
                     {currentStep.explanation.action}
@@ -442,14 +462,14 @@ export const App: React.FC = () => {
                   <ChevronDown className="w-3.5 h-3.5" />
                 )}
               </div>
-            </div>
+            </button>
 
             {!isOutputCollapsed && (
               <div className="h-20 bg-[#1F1F1F] p-2.5 font-mono text-xs text-[#D4D0C8] overflow-auto whitespace-pre">
                 {currentStep?.stdout || trace?.stdout ? (
                   <span className="text-[#A3DACA]">{currentStep?.stdout || trace?.stdout}</span>
                 ) : (
-                  <span className="text-[#6B6B6B] italic font-sans text-[11px]">
+                  <span className="text-[#A3A3A3] italic font-sans text-[11px]">
                     (No output produced yet)
                   </span>
                 )}

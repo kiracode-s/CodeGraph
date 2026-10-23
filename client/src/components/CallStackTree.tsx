@@ -25,10 +25,10 @@ export const CallStackTree: React.FC<CallStackTreeProps> = ({ callStack }) => {
       </div>
 
       {callStack.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#8A8780] font-sans">
-          <GitBranch className="w-6 h-6 mb-2 text-[#8A8780] opacity-50" />
-          <span className="text-xs font-semibold text-[#4A4A4A]">No active stack frames</span>
-          <span className="text-[11px] text-[#A39E93] mt-1">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#555555] font-sans">
+          <GitBranch className="w-6 h-6 mb-2 text-[#555555] opacity-50" />
+          <span className="text-xs font-semibold text-[#1F1F1F]">No active stack frames</span>
+          <span className="text-[11px] text-[#555555] mt-1">
             Function calls and recursive frames will show as a nested tree
           </span>
         </div>

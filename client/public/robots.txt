@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://code-graph-zeta.vercel.app/sitemap.xml

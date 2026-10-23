@@ -261,11 +261,14 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
           {/* Milestones filter toggle */}
           {activeTab === 'flowchart' && (
             <button
+              type="button"
+              aria-label="Filter milestones only"
+              aria-pressed={filterMilestonesOnly}
               onClick={() => setFilterMilestonesOnly(!filterMilestonesOnly)}
               className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-sans border transition-colors ${
                 filterMilestonesOnly
                   ? 'bg-[#007ACC] text-[#FFFFFF] border-[#007ACC]'
-                  : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#D4D0C8] hover:bg-[#F5F5F3]'
+                  : 'bg-[#FFFFFF] text-[#4A4A4A] border-[#D4D0C8] hover:bg-[#F5F5F3]'
               }`}
               title="Show only key decisions, loops, and variable changes"
             >
@@ -275,25 +278,33 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
           )}
 
           {/* Mode Switcher */}
-          <div className="flex items-center bg-[#FFFFFF] p-0.5 rounded border border-[#D4D0C8]">
+          <div className="flex items-center bg-[#FFFFFF] p-0.5 rounded border border-[#D4D0C8]" role="tablist" aria-label="Flowchart View Modes">
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'flowchart'}
+              aria-label="Flowchart view"
               onClick={() => {
                 sfx.playClick();
                 setActiveTab('flowchart');
               }}
               className={`px-2.5 py-1 text-[11px] font-sans rounded transition-colors ${
-                activeTab === 'flowchart' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                activeTab === 'flowchart' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
               }`}
             >
               Flowchart
             </button>
             <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'thinking'}
+              aria-label="Thinking Logic view"
               onClick={() => {
                 sfx.playClick();
                 setActiveTab('thinking');
               }}
               className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-sans rounded transition-colors ${
-                activeTab === 'thinking' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                activeTab === 'thinking' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
               }`}
             >
               <Sparkles className="w-3 h-3 text-[#DCDCAA]" />
@@ -301,12 +312,16 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
             </button>
             {loopRecords.length > 0 && (
               <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'loopMatrix'}
+                aria-label="Loop Matrix view"
                 onClick={() => {
                   sfx.playClick();
                   setActiveTab('loopMatrix');
                 }}
                 className={`px-2.5 py-1 text-[11px] font-sans rounded transition-colors ${
-                  activeTab === 'loopMatrix' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                  activeTab === 'loopMatrix' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#4A4A4A] hover:text-[#1F1F1F]'
                 }`}
               >
                 Loop Matrix

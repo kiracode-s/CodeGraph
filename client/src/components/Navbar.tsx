@@ -93,12 +93,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="h-6 w-px bg-[#E5E2DC] hidden md:block" />
 
           {/* Language Selector Pills */}
-          <div className="hidden sm:flex items-center gap-1 bg-[#F5F5F3] p-1 rounded-md border border-[#E5E2DC]">
+          <div className="hidden sm:flex items-center gap-1 bg-[#F5F5F3] p-1 rounded-md border border-[#E5E2DC]" role="group" aria-label="Select Programming Language">
             {languages.map((lang) => {
               const isActive = language === lang.id;
               return (
                 <button
                   key={lang.id}
+                  type="button"
+                  aria-pressed={isActive}
+                  aria-label={`Select ${lang.label}`}
                   onClick={() => {
                     sfx.playClick();
                     onLanguageChange(lang.id);
@@ -106,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className={`px-2.5 py-1 text-xs font-mono font-medium rounded transition-all ${
                     isActive
                       ? 'bg-[#FFFFFF] text-[#1F1F1F] shadow-xs border border-[#D4D0C8] font-semibold'
-                      : 'text-[#6B6B6B] hover:text-[#1F1F1F] hover:bg-[#EAE8E2]/50'
+                      : 'text-[#4A4A4A] hover:text-[#1F1F1F] hover:bg-[#EAE8E2]/50'
                   }`}
                 >
                   {lang.label}
@@ -121,15 +124,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Example Programs Dropdown */}
           <div className="relative">
             <button
+              type="button"
+              aria-haspopup="true"
+              aria-expanded={showTemplates}
+              aria-label="Example Programs"
               onClick={() => {
                 sfx.playClick();
                 setShowTemplates(!showTemplates);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#E5E2DC] bg-[#FFFFFF] hover:bg-[#F5F5F3] text-xs font-sans font-medium text-[#1F1F1F] transition-all shadow-xs"
             >
-              <BookOpen className="w-3.5 h-3.5 text-[#6B6B6B]" />
+              <BookOpen className="w-3.5 h-3.5 text-[#4A4A4A]" />
               <span>Examples</span>
-              <ChevronDown className="w-3 h-3 text-[#6B6B6B]" />
+              <ChevronDown className="w-3 h-3 text-[#4A4A4A]" />
             </button>
 
             {showTemplates && (
@@ -139,12 +146,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => setShowTemplates(false)}
                 />
                 <div className="absolute left-0 mt-1.5 w-72 bg-[#FFFFFF] border border-[#E5E2DC] rounded-lg shadow-lg z-50 p-1.5 max-h-80 overflow-y-auto">
-                  <div className="px-2.5 py-1.5 text-[11px] font-mono font-semibold text-[#6B6B6B] border-b border-[#E5E2DC]">
+                  <div className="px-2.5 py-1.5 text-[11px] font-mono font-semibold text-[#4A4A4A] border-b border-[#E5E2DC]">
                     {language.toUpperCase()} EXAMPLES
                   </div>
                   {CODE_TEMPLATES[language]?.map((tmpl, idx) => (
                     <button
                       key={idx}
+                      type="button"
                       onClick={() => {
                         sfx.playClick();
                         onSelectTemplate(tmpl.code);
@@ -155,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <div className="text-xs font-semibold text-[#1F1F1F] group-hover:text-[#1B7D5F]">
                         {tmpl.name}
                       </div>
-                      <div className="text-[11px] text-[#6B6B6B] line-clamp-1">
+                      <div className="text-[11px] text-[#4A4A4A] line-clamp-1">
                         {tmpl.description}
                       </div>
                     </button>
@@ -167,6 +175,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Engine Selector */}
           <button
+            type="button"
+            aria-label={`Execution Engine: ${engineMode === 'backend' ? 'Local Backend' : 'Browser Simulator'}, click to switch`}
             onClick={() => {
               sfx.playClick();
               onToggleEngineMode(engineMode === 'backend' ? 'browser' : 'backend');
@@ -190,17 +200,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Primary Action Button: Visualize / Edit */}
           {isVisualizing ? (
             <button
+              type="button"
+              aria-label="Edit Code"
               onClick={() => {
                 sfx.playClick();
                 onToggleEdit();
               }}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded bg-[#F5F5F3] hover:bg-[#EAE8E2] border border-[#D4D0C8] text-xs font-sans font-semibold text-[#1F1F1F] transition-all shadow-xs"
             >
-              <Code2 className="w-3.5 h-3.5 text-[#6B6B6B]" />
+              <Code2 className="w-3.5 h-3.5 text-[#4A4A4A]" />
               <span>Edit Code</span>
             </button>
           ) : (
             <button
+              type="button"
+              aria-label="Visualize Execution"
               onClick={() => {
                 sfx.playClick();
                 onVisualize();
@@ -225,6 +239,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Export Menu */}
           <div className="relative">
             <button
+              type="button"
+              aria-haspopup="true"
+              aria-expanded={showExport}
+              aria-label="Export Visualization"
               onClick={() => {
                 sfx.playClick();
                 setShowExport(!showExport);
@@ -243,6 +261,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 />
                 <div className="absolute right-0 mt-1.5 w-44 bg-[#FFFFFF] border border-[#E5E2DC] rounded-lg shadow-lg z-50 p-1">
                   <button
+                    type="button"
                     onClick={() => {
                       onExportSvg();
                       setShowExport(false);
@@ -252,6 +271,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     Export SVG Diagram
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       onExportJson();
                       setShowExport(false);
@@ -267,6 +287,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Reset Workspace */}
           <button
+            type="button"
+            aria-label="Reset Code and Memory"
             onClick={() => {
               sfx.playClick();
               onReset();
@@ -279,9 +301,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Sound Toggle */}
           <button
+            type="button"
+            aria-label={soundOn ? 'Mute sound effects' : 'Enable sound effects'}
+            aria-pressed={soundOn}
             onClick={toggleSound}
             className={`p-1.5 rounded border border-[#E5E2DC] bg-[#FFFFFF] hover:bg-[#F5F5F3] transition-all shadow-xs ${
-              soundOn ? 'text-[#1B7D5F]' : 'text-[#8A8780]'
+              soundOn ? 'text-[#1B7D5F]' : 'text-[#595959]'
             }`}
             title={soundOn ? 'Sound effects enabled' : 'Mute sound effects'}
           >
@@ -290,6 +315,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Help Button */}
           <button
+            type="button"
+            aria-label="How it works and documentation"
             onClick={() => {
               sfx.playClick();
               setShowHelp(true);
@@ -304,15 +331,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Guide Modal */}
       {showHelp && (
-        <div className="fixed inset-0 bg-[#000000]/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-guide-title"
+          className="fixed inset-0 bg-[#000000]/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+        >
           <div className="bg-[#FFFFFF] border border-[#D4D0C8] rounded-xl max-w-lg w-full p-6 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E2DC]">
-              <h2 className="font-serif font-bold text-lg text-[#1F1F1F]">
+              <h2 id="modal-guide-title" className="font-serif font-bold text-lg text-[#1F1F1F]">
                 How Code Tracer Works
               </h2>
               <button
+                type="button"
+                aria-label="Close guide modal"
                 onClick={() => setShowHelp(false)}
-                className="text-[#6B6B6B] hover:text-[#1F1F1F] font-mono text-sm px-2 py-0.5"
+                className="text-[#4A4A4A] hover:text-[#1F1F1F] font-mono text-sm px-2 py-0.5"
               >
                 ✕
               </button>

@@ -192,10 +192,10 @@ export const MemoryViewer: React.FC<MemoryViewerProps> = ({
         </div>
 
         {callStack.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#8A8780] border border-dashed border-[#D4D0C8] rounded-lg">
-            <Layers className="w-6 h-6 mb-2 text-[#8A8780] opacity-50" />
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#555555] border border-dashed border-[#D4D0C8] rounded-lg">
+            <Layers className="w-6 h-6 mb-2 text-[#555555] opacity-50" />
             <span className="text-xs font-sans">No active stack frames</span>
-            <span className="text-[11px] text-[#A39E93] mt-1">
+            <span className="text-[11px] text-[#555555] mt-1">
               Start the execution to view variable scopes
             </span>
           </div>
@@ -337,10 +337,10 @@ export const MemoryViewer: React.FC<MemoryViewerProps> = ({
         </div>
 
         {heapKeys.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#8A8780] border border-dashed border-[#D4D0C8] rounded-lg">
-            <Database className="w-6 h-6 mb-2 text-[#8A8780] opacity-50" />
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#555555] border border-dashed border-[#D4D0C8] rounded-lg">
+            <Database className="w-6 h-6 mb-2 text-[#555555] opacity-50" />
             <span className="text-xs font-sans">Heap memory is empty</span>
-            <span className="text-[11px] text-[#A39E93] mt-1">
+            <span className="text-[11px] text-[#555555] mt-1">
               Lists, arrays, objects, and structs will appear here
             </span>
           </div>
