@@ -69,7 +69,8 @@ export const App: React.FC = () => {
 
       if (engineMode === 'backend') {
         try {
-          const res = await fetch('/api/visualize', {
+          const apiBase = import.meta.env.VITE_API_URL || '';
+          const res = await fetch(`${apiBase}/api/visualize`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ language, code })

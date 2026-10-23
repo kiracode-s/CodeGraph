@@ -13,14 +13,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+const allowedOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "*";
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "2mb" }));
 
-// Helper to safely execute python tracer
-function tracePython(code) {
-  return new Promise((resolve) => {
-    const pythonScript = path.join(__dirname, "tracers", "python_tracer.py");
-    const pyProcess = spawn("python", [pythonScript], {
+// Helper to spawn a python process with timeout
+function runPythonProcess(cmd, scriptPath, code) {
+  return new Promise((resolve, reject) => {
+    const pyProcess = spawn(cmd, [scriptPath], {
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 5000 // 5 second hard limit
     });
@@ -36,19 +36,41 @@ function tracePython(code) {
       stderrData += chunk.toString();
     });
 
-    pyProcess.on("close", (code) => {
+    pyProcess.on("close", () => {
+      resolve({ stdoutData, stderrData });
+    });
+
+    pyProcess.on("error", (err) => {
+      reject(err);
+    });
+
+    pyProcess.stdin.write(code);
+    pyProcess.stdin.end();
+  });
+}
+
+// Safely execute python tracer with multi-environment binary fallback
+async function tracePython(code) {
+  const pythonScript = path.join(__dirname, "tracers", "python_tracer.py");
+  const candidates = process.env.PYTHON_BIN
+    ? [process.env.PYTHON_BIN]
+    : process.platform === "win32"
+    ? ["python", "python3", "py"]
+    : ["python3", "python"];
+
+  for (const cmd of candidates) {
+    try {
+      const { stdoutData, stderrData } = await runPythonProcess(cmd, pythonScript, code);
       if (stdoutData) {
         try {
           const parsed = JSON.parse(stdoutData);
-          resolve(parsed);
-          return;
+          return parsed;
         } catch (e) {
-          // If JSON parse failed
+          // JSON parse failed, treat as error below
         }
       }
 
-      // If python failed or error
-      resolve({
+      return {
         language: "python",
         status: "error",
         totalSteps: 0,
@@ -61,27 +83,28 @@ function tracePython(code) {
           suggestion: "Check your Python syntax and ensure standard libraries are used."
         },
         steps: []
-      });
-    });
+      };
+    } catch (err) {
+      // Continue to next binary candidate if ENOENT
+      continue;
+    }
+  }
 
-    pyProcess.on("error", (err) => {
-      // Fallback to simulation engine if python executable not found or failed
-      const engine = new DryRunEngine("python", code);
-      resolve(engine.run());
-    });
-
-    pyProcess.stdin.write(code);
-    pyProcess.stdin.end();
-  });
+  // Fallback to simulation engine if python executable not found or failed
+  const engine = new DryRunEngine("python", code);
+  return engine.run();
 }
 
-// C/C++ GCC check & execution with auto-deletion of temp files
+// C/C++ GCC check & execution with cross-platform binary handling
 async function compileAndCheckGCC(code, isCpp = false) {
   return new Promise((resolve) => {
     const tempDir = os.tmpdir();
     const id = "tutor_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-    const srcFile = path.join(tempDir, `${id}.${isCpp ? "cpp" : "c"}`);
-    const exeFile = path.join(tempDir, `${id}.exe`);
+    const isWin = process.platform === "win32";
+    const srcExt = isCpp ? ".cpp" : ".c";
+    const exeExt = isWin ? ".exe" : ".out";
+    const srcFile = path.join(tempDir, `${id}${srcExt}`);
+    const exeFile = path.join(tempDir, `${id}${exeExt}`);
 
     try {
       fs.writeFileSync(srcFile, code, "utf-8");
@@ -182,7 +205,7 @@ app.post("/api/visualize", async (req, res) => {
           type: "CompilerError",
           message: errMsg,
           line: errLine,
-          explanation: `MinGW GCC detected compilation error: ${errMsg}`,
+          explanation: `GCC detected compilation error: ${errMsg}`,
           suggestion: "Fix the syntax or declaration error indicated by the compiler."
         };
         simulation.status = "error";
@@ -227,6 +250,54 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`[Tutor Backend] Server listening on http://localhost:${PORT}`);
+// Serve static client assets if built (Production Monolith mode)
+const distPath = path.join(__dirname, "..", "client", "dist");
+if (fs.existsSync(distPath)) {
+  console.log(`[Tutor Backend] Production mode: Serving static client from ${distPath}`);
+  app.use(express.static(distPath));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) return next();
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+} else {
+  app.get("/", (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>CodeGraph Backend</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 3rem; line-height: 1.6; max-width: 640px; margin: 0 auto; color: #1f1f1f; background: #fbfbfa; }
+            h2 { color: #1b7d5f; }
+            code { background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+          </style>
+        </head>
+        <body>
+          <h2>CodeGraph API Server</h2>
+          <p>Backend API status: <strong>Online</strong></p>
+          <p>Frontend production bundle not found in <code>client/dist</code>. To build the frontend bundle, run:</p>
+          <pre><code>npm run build</code></pre>
+          <p><a href="/api/health">Verify /api/health endpoint</a></p>
+        </body>
+      </html>
+    `);
+  });
+}
+
+const server = app.listen(PORT, () => {
+  console.log(`[Tutor Backend] Server listening on port ${PORT}`);
+});
+
+process.on("SIGTERM", () => {
+  console.log("[Tutor Backend] SIGTERM received. Shutting down gracefully...");
+  server.close(() => {
+    process.exit(0);
+  });
+});
+
+process.on("SIGINT", () => {
+  console.log("[Tutor Backend] SIGINT received. Shutting down gracefully...");
+  server.close(() => {
+    process.exit(0);
+  });
 });

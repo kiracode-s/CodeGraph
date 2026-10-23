@@ -1,15 +1,26 @@
 {
-  "name": "cyber-tutor",
+  "name": "codegraph",
   "version": "2.0.0",
-  "description": "Advanced visual dry-run code execution visualizer for Python, C, C++, Java, JavaScript",
+  "description": "CodeGraph: Advanced visual dry-run code execution visualizer for Python, C, C++, Java, JavaScript",
   "scripts": {
     "dev": "node -e \"const { spawn } = require('child_process'); spawn('node', ['server/server.js'], { stdio: 'inherit', shell: true }); spawn('npm', ['run', 'dev'], { cwd: 'client', stdio: 'inherit', shell: true });\"",
     "start": "node server/server.js",
     "client": "npm --prefix client run dev",
     "server": "node server/server.js",
-    "build": "npm --prefix client run build"
+    "install-all": "npm --prefix client install && npm --prefix server install",
+    "build:client": "npm --prefix client run build",
+    "build": "npm --prefix client install && npm --prefix client run build && npm --prefix server install"
   },
-  "keywords": ["pythontutor", "visualizer", "debugger", "compiler", "dryrun", "memory", "pointers"],
-  "author": "Antigravity",
+  "keywords": [
+    "pythontutor",
+    "visualizer",
+    "debugger",
+    "compiler",
+    "dryrun",
+    "memory",
+    "pointers",
+    "codegraph"
+  ],
+  "author": "kiracode-s",
   "license": "MIT"
 }
