@@ -1,16 +1,18 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Activity, 
-  Play, 
-  ArrowDown, 
-  RotateCcw, 
-  CheckCircle2, 
   Repeat, 
   GitFork, 
   ChevronRight,
-  TrendingUp,
+  Sparkles,
   Table,
-  Layers
+  Filter,
+  CheckCircle2,
+  ArrowDownRight,
+  TrendingUp,
+  Cpu,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 import { StepState } from '../types';
 import { sfx } from '../utils/audio';
@@ -21,16 +23,21 @@ interface FlowchartViewerProps {
   onSelectStep?: (index: number) => void;
 }
 
-interface FlowNode {
+interface IntelligentFlowNode {
   id: string;
   stepIndex: number;
   line: number;
-  type: 'start' | 'process' | 'decision' | 'loop-condition' | 'loop-body' | 'call' | 'return' | 'end';
+  type: 'start' | 'process' | 'decision' | 'loop-condition' | 'call' | 'return' | 'end';
   label: string;
   detail: string;
+  action: string;
+  reason: string;
+  memoryImpact: string;
+  nextPrediction: string;
+  changedVars: { name: string; val: any }[];
   isLoopBack?: boolean;
-  loopTargetStep?: number;
   iteration?: number;
+  branchOutcome?: 'true' | 'false' | null;
 }
 
 interface LoopIterationRecord {
@@ -48,24 +55,25 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
   currentStepIndex,
   onSelectStep
 }) => {
-  const [viewMode, setViewMode] = useState<'graph' | 'loopMatrix'>('graph');
-  const currentStep = steps[currentStepIndex];
-  const activeLine = currentStep?.line ?? -1;
+  const [activeTab, setActiveTab] = useState<'flowchart' | 'thinking' | 'loopMatrix'>('flowchart');
+  const [filterMilestonesOnly, setFilterMilestonesOnly] = useState<boolean>(false);
 
-  // Auto-scroll to active node on step transition in graph view
+  const currentStep = steps[currentStepIndex];
+
+  // Auto-scroll to active node
   useEffect(() => {
-    if (viewMode === 'graph') {
+    if (activeTab === 'flowchart') {
       const activeEl = document.getElementById(`flow-node-${currentStepIndex}`);
       if (activeEl) {
         activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
-  }, [currentStepIndex, viewMode]);
+  }, [currentStepIndex, activeTab]);
 
-  // 1. Analyze loops across execution trace
-  const { loopRecords, loopCount, activeLoopIteration } = useMemo(() => {
+  // 1. Loop iteration analysis
+  const { loopRecords, activeLoopIteration } = useMemo(() => {
     if (!steps || steps.length === 0) {
-      return { loopRecords: [], loopCount: 0, activeLoopIteration: 1 };
+      return { loopRecords: [], activeLoopIteration: 1 };
     }
 
     const records: LoopIterationRecord[] = [];
@@ -80,7 +88,6 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
         const count = (loopLineOccurrences.get(step.line) || 0) + 1;
         loopLineOccurrences.set(step.line, count);
 
-        // Capture variable snapshot
         const vars: Record<string, any> = {};
         const topFrame = step.callStack[step.callStack.length - 1];
         if (topFrame) {
@@ -110,42 +117,69 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
 
     return {
       loopRecords: records,
-      loopCount: records.length,
       activeLoopIteration: currentIter
     };
   }, [steps, currentStepIndex]);
 
-  // 2. Build sequential & branching execution graph from steps
-  const nodes: FlowNode[] = useMemo(() => {
+  // 2. Build Intelligent Flowchart Nodes with Reasoning & State Tracking
+  const allNodes: IntelligentFlowNode[] = useMemo(() => {
     if (!steps || steps.length === 0) return [];
 
-    const list: FlowNode[] = [];
-    // Start node
+    const list: IntelligentFlowNode[] = [];
+
+    // Start Node
     list.push({
       id: 'node-start',
       stepIndex: 0,
       line: steps[0]?.line || 1,
       type: 'start',
       label: 'PROGRAM START',
-      detail: 'Initialize global execution environment'
+      detail: 'Initialize execution scope and runtime memory',
+      action: 'Initialize Execution Environment',
+      reason: 'Bootstraps global variables, imported modules, and runtime structures.',
+      memoryImpact: 'Global frame initialized in call stack.',
+      nextPrediction: 'Execute first statement.',
+      changedVars: []
     });
 
     steps.forEach((step, idx) => {
       const isCall = step.event === 'call';
       const isReturn = step.event === 'return';
       const actionLower = (step.explanation?.action || '').toLowerCase();
+      const reasonLower = (step.explanation?.reason || '').toLowerCase();
       const isLoop = actionLower.includes('loop') || actionLower.includes('for') || actionLower.includes('while');
-      const isCondition = actionLower.includes('if') || actionLower.includes('branch');
+      const isDecision = actionLower.includes('if') || actionLower.includes('branch') || actionLower.includes('condition');
 
-      let type: FlowNode['type'] = 'process';
+      let type: IntelligentFlowNode['type'] = 'process';
       if (isCall) type = 'call';
       else if (isReturn) type = 'return';
       else if (isLoop) type = 'loop-condition';
-      else if (isCondition) type = 'decision';
+      else if (isDecision) type = 'decision';
 
-      // Check if this step loops back to an earlier statement
+      // Track variable changes for this node
+      const changed: { name: string; val: any }[] = [];
+      const topFrame = step.callStack[step.callStack.length - 1];
+      if (topFrame) {
+        Object.entries(topFrame.variables).forEach(([k, v]) => {
+          if (v.isUpdated) {
+            changed.push({ name: k, val: v.value });
+          }
+        });
+      }
+
+      // Check loop back
       const prevStep = idx > 0 ? steps[idx - 1] : null;
-      const isLoopBack = prevStep && step.line <= prevStep.line && isLoop;
+      const isLoopBack = Boolean(prevStep && step.line <= prevStep.line && isLoop);
+
+      // Determine branch outcome if decision
+      let branchOutcome: 'true' | 'false' | null = null;
+      if (isDecision) {
+        if (reasonLower.includes('true') || actionLower.includes('entered') || actionLower.includes('true')) {
+          branchOutcome = 'true';
+        } else if (reasonLower.includes('false') || actionLower.includes('skipped') || actionLower.includes('else')) {
+          branchOutcome = 'false';
+        }
+      }
 
       list.push({
         id: `node-${idx}`,
@@ -154,22 +188,43 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
         type,
         label: `Line ${step.line}: ${step.explanation?.action || 'Statement'}`,
         detail: step.explanation?.reason || `Execute line ${step.line}`,
-        isLoopBack: Boolean(isLoopBack)
+        action: step.explanation?.action || `Execution step at line ${step.line}`,
+        reason: step.explanation?.reason || 'Statement evaluated sequentially.',
+        memoryImpact: step.explanation?.memoryImpact || (changed.length > 0 ? `Updated: ${changed.map(c => `${c.name}=${String(c.val)}`).join(', ')}` : 'No stack modification'),
+        nextPrediction: step.explanation?.nextPrediction || 'Advance to next instruction in sequence.',
+        changedVars: changed,
+        isLoopBack,
+        branchOutcome
       });
     });
 
-    // End node
+    // End Node
     list.push({
       id: 'node-end',
       stepIndex: steps.length - 1,
       line: steps[steps.length - 1]?.line || 1,
       type: 'end',
-      label: 'TERMINATION',
-      detail: 'Program execution completed'
+      label: 'PROGRAM TERMINATION',
+      detail: 'Execution halted successfully. Resources deallocated.',
+      action: 'Process Terminated',
+      reason: 'Reached end of code without unhandled exceptions.',
+      memoryImpact: 'All call stack frames released.',
+      nextPrediction: 'Execution completed.',
+      changedVars: []
     });
 
     return list;
   }, [steps]);
+
+  // Filter nodes if user only wants key milestones (decisions, loops, calls, mutations)
+  const displayNodes = useMemo(() => {
+    if (!filterMilestonesOnly) return allNodes;
+    return allNodes.filter((n, idx) => {
+      if (idx === 0 || idx === allNodes.length - 1) return true;
+      if (n.stepIndex === currentStepIndex) return true;
+      return n.type === 'decision' || n.type === 'loop-condition' || n.type === 'call' || n.type === 'return' || n.changedVars.length > 0;
+    });
+  }, [allNodes, filterMilestonesOnly, currentStepIndex]);
 
   if (!steps || steps.length === 0) {
     return (
@@ -177,93 +232,127 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
         <Activity className="w-8 h-8 mb-2 opacity-40 text-[#8A8780]" />
         <span className="text-xs font-semibold text-[#4A4A4A]">No control flow generated</span>
         <span className="text-[11px] text-[#A39E93] mt-1">
-          Click 'Visualize Execution' to generate the dynamic control flow graph
+          Run or Visualize code to generate the intelligent control flow graph
         </span>
       </div>
     );
   }
 
+  const activeNode = allNodes.find(n => n.stepIndex === currentStepIndex) || allNodes[1] || allNodes[0];
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#FBFBFA] border border-[#E5E2DC] rounded-lg overflow-hidden select-none">
-      {/* 1. Header Bar: Control Flow & Loop Mode Switcher */}
-      <div className="px-4 py-2.5 bg-[#F5F5F3] border-b border-[#E5E2DC] flex items-center justify-between text-xs">
+    <div className="flex-1 flex flex-col h-full bg-[#FFFFFF] border border-[#E5E2DC] rounded-lg overflow-hidden select-none">
+      {/* 1. Header: View Switcher & AI Thinking Toggle */}
+      <div className="px-4 py-2 bg-[#F5F5F3] border-b border-[#E5E2DC] flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
-          <span className="font-serif font-bold text-sm text-[#1F1F1F]">
-            Control Flow & Loops
+          <span className="font-serif font-bold text-sm text-[#1F1F1F] flex items-center gap-1.5">
+            <Cpu className="w-4 h-4 text-[#007ACC]" />
+            Control Flow & Thinking
           </span>
           {loopRecords.length > 0 && (
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FDF5F0] text-[#C4702E] border border-[#FAE6D8] font-semibold flex items-center gap-1">
               <Repeat className="w-3 h-3 text-[#C4702E]" />
-              Loop Detected ({loopRecords.length} iterations)
+              Loop #{activeLoopIteration}
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {loopRecords.length > 0 && (
-            <div className="flex items-center bg-[#FFFFFF] p-0.5 rounded border border-[#D4D0C8]">
-              <button
-                onClick={() => {
-                  sfx.playClick();
-                  setViewMode('graph');
-                }}
-                className={`px-2 py-0.5 text-[11px] font-sans rounded transition-colors ${
-                  viewMode === 'graph' ? 'bg-[#F5F5F3] font-bold text-[#1F1F1F]' : 'text-[#6B6B6B]'
-                }`}
-              >
-                Flowchart Graph
-              </button>
-              <button
-                onClick={() => {
-                  sfx.playClick();
-                  setViewMode('loopMatrix');
-                }}
-                className={`px-2 py-0.5 text-[11px] font-sans rounded transition-colors ${
-                  viewMode === 'loopMatrix' ? 'bg-[#F5F5F3] font-bold text-[#1F1F1F]' : 'text-[#6B6B6B]'
-                }`}
-              >
-                Loop Iterations
-              </button>
-            </div>
+          {/* Milestones filter toggle */}
+          {activeTab === 'flowchart' && (
+            <button
+              onClick={() => setFilterMilestonesOnly(!filterMilestonesOnly)}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-sans border transition-colors ${
+                filterMilestonesOnly
+                  ? 'bg-[#007ACC] text-[#FFFFFF] border-[#007ACC]'
+                  : 'bg-[#FFFFFF] text-[#6B6B6B] border-[#D4D0C8] hover:bg-[#F5F5F3]'
+              }`}
+              title="Show only key decisions, loops, and variable changes"
+            >
+              <Filter className="w-3 h-3" />
+              <span>Milestones Only</span>
+            </button>
           )}
+
+          {/* Mode Switcher */}
+          <div className="flex items-center bg-[#FFFFFF] p-0.5 rounded border border-[#D4D0C8]">
+            <button
+              onClick={() => {
+                sfx.playClick();
+                setActiveTab('flowchart');
+              }}
+              className={`px-2.5 py-1 text-[11px] font-sans rounded transition-colors ${
+                activeTab === 'flowchart' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+              }`}
+            >
+              Flowchart
+            </button>
+            <button
+              onClick={() => {
+                sfx.playClick();
+                setActiveTab('thinking');
+              }}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-sans rounded transition-colors ${
+                activeTab === 'thinking' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-[#DCDCAA]" />
+              <span>Thinking Logic</span>
+            </button>
+            {loopRecords.length > 0 && (
+              <button
+                onClick={() => {
+                  sfx.playClick();
+                  setActiveTab('loopMatrix');
+                }}
+                className={`px-2.5 py-1 text-[11px] font-sans rounded transition-colors ${
+                  activeTab === 'loopMatrix' ? 'bg-[#007ACC] text-[#FFFFFF] font-semibold shadow-xs' : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
+                }`}
+              >
+                Loop Matrix
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 2. Educational Loop Progress Indicator (when loop is detected) */}
-      {loopRecords.length > 0 && (
-        <div className="px-4 py-2 bg-[#FFFFFF] border-b border-[#E5E2DC] flex items-center justify-between text-xs font-sans">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-[#1F1F1F] flex items-center gap-1.5">
-              <Repeat className="w-3.5 h-3.5 text-[#1B7D5F]" />
-              Active Loop Iteration: <strong className="text-[#1B7D5F] font-mono">#{activeLoopIteration}</strong>
-            </span>
-            <div className="w-32 h-1.5 bg-[#E5E2DC] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#1B7D5F] transition-all duration-200"
-                style={{ width: `${Math.min(100, (activeLoopIteration / Math.max(1, loopRecords.length)) * 100)}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="text-[11px] font-mono text-[#6B6B6B]">
-            {activeLoopIteration >= loopRecords.length ? 'Loop Completed' : `Step through to inspect turn #${activeLoopIteration}`}
-          </div>
+      {/* 2. Thinking Process Banner (Always visible summary of current step reasoning) */}
+      <div className="px-4 py-2 bg-[#F9FAFB] border-b border-[#E5E2DC] flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <div className="w-2 h-2 rounded-full bg-[#007ACC] animate-pulse shrink-0" />
+          <span className="font-semibold text-[#1F1F1F] font-mono text-[11px]">
+            Step {currentStepIndex + 1}/{steps.length}:
+          </span>
+          <span className="text-[#4B5563] text-xs truncate">
+            {activeNode.detail}
+          </span>
         </div>
-      )}
+        {activeNode.changedVars.length > 0 && (
+          <div className="flex items-center gap-1 shrink-0 ml-2">
+            {activeNode.changedVars.map(cv => (
+              <span key={cv.name} className="px-1.5 py-0.5 rounded bg-[#EBF7F2] border border-[#D1EDE3] text-[#0F4D3A] font-mono text-[10px] font-semibold">
+                {cv.name} = {String(cv.val)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* 3. Main View Switcher: Flowchart Graph vs Loop Iteration Matrix */}
-      {viewMode === 'graph' ? (
-        /* Flowchart Graph with Real SVG Loop-Back Connectors */
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center space-y-0">
-          {nodes.map((node, idx) => {
+      {/* 3. Main Views */}
+      {activeTab === 'flowchart' ? (
+        /* Visual Flowchart with Decision Diamonds & State Cards */
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center space-y-0 bg-[#FAFAFA]">
+          {displayNodes.map((node, idx) => {
             const isCurrent = node.stepIndex === currentStepIndex;
             const isPast = node.stepIndex < currentStepIndex;
-            const isLoopType = node.type === 'loop-condition';
             const isDecision = node.type === 'decision';
+            const isLoop = node.type === 'loop-condition';
+            const isCall = node.type === 'call';
+            const isReturn = node.type === 'return';
 
             return (
               <React.Fragment key={node.id}>
-                {/* Node Card */}
+                {/* Node Container */}
                 <div
                   id={`flow-node-${node.stepIndex}`}
                   onClick={() => {
@@ -272,50 +361,71 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
                       onSelectStep(node.stepIndex);
                     }
                   }}
-                  className={`relative max-w-sm w-full p-3 rounded-lg border transition-all cursor-pointer font-sans shadow-xs ${
+                  className={`relative max-w-md w-full p-3 rounded-lg border transition-all cursor-pointer font-sans shadow-xs ${
                     isCurrent
-                      ? 'bg-[#FFFFFF] border-2 border-[#1B7D5F] shadow-md ring-2 ring-[#1B7D5F]/20 scale-102 z-10'
-                      : isLoopType
-                      ? 'bg-[#FFFFFF] border-[#C4702E] shadow-xs'
+                      ? 'bg-[#FFFFFF] border-2 border-[#007ACC] shadow-md ring-2 ring-[#007ACC]/25 scale-102 z-10'
+                      : isDecision
+                      ? 'bg-[#FFFDF7] border-[#E8C468] hover:border-[#D4A325]'
+                      : isLoop
+                      ? 'bg-[#FDF9F5] border-[#E5A97D] hover:border-[#C4702E]'
                       : isPast
-                      ? 'bg-[#FFFFFF] border-[#D4D0C8] text-[#1F1F1F] opacity-90'
+                      ? 'bg-[#FFFFFF] border-[#D4D0C8] text-[#1F1F1F] opacity-95'
                       : 'bg-[#F5F5F3] border-[#E5E2DC] text-[#8A8780] opacity-60'
                   }`}
                 >
-                  {/* Node Status Badge */}
+                  {/* Header Badge */}
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-1.5">
-                      {node.type === 'start' && <span className="w-2 h-2 rounded-full bg-[#1B7D5F]" />}
-                      {node.type === 'loop-condition' && <Repeat className="w-3 h-3 text-[#C4702E]" />}
-                      {node.type === 'decision' && <span className="w-2 h-2 rotate-45 bg-[#C4702E]" />}
-                      {node.type === 'call' && <span className="w-2 h-2 rounded-xs bg-[#569CD6]" />}
-                      {node.type === 'return' && <span className="w-2 h-2 rounded-full bg-[#A35A24]" />}
-                      {node.type === 'end' && <span className="w-2 h-2 rounded-full bg-[#C44545]" />}
+                      {node.type === 'start' && <span className="w-2.5 h-2.5 rounded-full bg-[#1B7D5F]" />}
+                      {node.type === 'end' && <span className="w-2.5 h-2.5 rounded-full bg-[#C44545]" />}
+                      {isDecision && <GitFork className="w-3.5 h-3.5 text-[#D4A325]" />}
+                      {isLoop && <Repeat className="w-3.5 h-3.5 text-[#C4702E]" />}
+                      {isCall && <Layers className="w-3.5 h-3.5 text-[#007ACC]" />}
+                      {isReturn && <ArrowDownRight className="w-3.5 h-3.5 text-[#8A63D2]" />}
                       {node.type === 'process' && <span className="w-2 h-2 rounded-xs bg-[#6B6B6B]" />}
 
                       <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-[#6B6B6B]">
-                        {node.type === 'loop-condition' ? 'LOOP PREDICATE' : node.type} • Line {node.line}
+                        {isDecision ? 'DECISION / BRANCH' : isLoop ? 'LOOP ITERATION' : node.type} • Line {node.line}
                       </span>
                     </div>
 
-                    {isCurrent && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#F0F7F4] text-[#1B7D5F] border border-[#D1EDE3] flex items-center gap-1">
+                    {isCurrent ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[#EBF7F2] text-[#0F4D3A] border border-[#D1EDE3] flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#1B7D5F] animate-ping" />
-                        Executing
+                        Active Step
                       </span>
-                    )}
+                    ) : node.branchOutcome ? (
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                        node.branchOutcome === 'true' ? 'bg-[#D1EDE3] text-[#0F4D3A]' : 'bg-[#FDE3E3] text-[#A33636]'
+                      }`}>
+                        Branch: {node.branchOutcome.toUpperCase()}
+                      </span>
+                    ) : null}
                   </div>
 
+                  {/* Title & Explanation */}
                   <div className="text-xs font-semibold text-[#1F1F1F] font-mono mb-1 truncate">
                     {node.label}
                   </div>
-                  <div className="text-[11px] text-[#6B6B6B] line-clamp-2">
+                  <div className="text-[11px] text-[#6B6B6B] line-clamp-2 mb-1.5">
                     {node.detail}
                   </div>
+
+                  {/* Variable Mutations Chips */}
+                  {node.changedVars.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1 pt-1.5 border-t border-[#F0EFE9]">
+                      <span className="text-[10px] text-[#8A8780] font-sans">Mutation:</span>
+                      {node.changedVars.map(cv => (
+                        <span key={cv.name} className="px-1.5 py-0.2 rounded bg-[#EBF3FC] text-[#0062A3] font-mono text-[10px] font-medium border border-[#D0E2FB]">
+                          {cv.name} ➜ {String(cv.val)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Connecting SVG Path Line & Loop-Back Visualizer */}
-                {idx < nodes.length - 1 && (
+                {/* SVG Arrow Connector */}
+                {idx < displayNodes.length - 1 && (
                   <div className="flex flex-col items-center h-8 w-full relative">
                     <svg className="w-8 h-8 pointer-events-none" viewBox="0 0 32 32">
                       <defs>
@@ -330,7 +440,7 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
                         >
                           <path
                             d="M 0 1 L 9 5 L 0 9 z"
-                            fill={idx < currentStepIndex ? '#1B7D5F' : '#D4D0C8'}
+                            fill={idx < currentStepIndex ? '#007ACC' : '#D4D0C8'}
                           />
                         </marker>
                       </defs>
@@ -339,18 +449,17 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
                         y1="0"
                         x2="16"
                         y2="24"
-                        stroke={idx < currentStepIndex ? '#1B7D5F' : '#D4D0C8'}
+                        stroke={idx < currentStepIndex ? '#007ACC' : '#D4D0C8'}
                         strokeWidth={idx < currentStepIndex ? 2 : 1.5}
                         strokeDasharray={idx >= currentStepIndex ? '3 3' : undefined}
                         markerEnd={`url(#fc-arr-${idx})`}
                       />
                     </svg>
 
-                    {/* Loop Back Indicator if returning to loop condition */}
                     {node.isLoopBack && (
-                      <div className="absolute right-12 top-1 text-[9px] font-mono text-[#C4702E] bg-[#FDF5F0] border border-[#FAE6D8] px-1.5 py-0.2 rounded-full flex items-center gap-1">
+                      <div className="absolute right-8 top-1 text-[9px] font-mono text-[#C4702E] bg-[#FDF5F0] border border-[#FAE6D8] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
                         <Repeat className="w-2.5 h-2.5" />
-                        <span>↺ Loop Back</span>
+                        <span>↺ Loop Recycle</span>
                       </div>
                     )}
                   </div>
@@ -359,22 +468,84 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
             );
           })}
         </div>
+      ) : activeTab === 'thinking' ? (
+        /* Deep AI Thinking & Algorithmic Reasoning View */
+        <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-[#FBFBFA]">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-[#EBF3FC] border border-[#B9D9FB] text-xs text-[#004B87]">
+            <Sparkles className="w-4 h-4 text-[#007ACC] shrink-0" />
+            <span>
+              <strong>Algorithmic Thinking Engine:</strong> Explaining exact runtime intent, state mutations, and control logic for Step <strong>#{currentStepIndex + 1}</strong> (Line <strong>{activeNode.line}</strong>).
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Box 1: Executive Intent */}
+            <div className="p-4 rounded-lg border border-[#E5E2DC] bg-[#FFFFFF] shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#1F1F1F] mb-2 uppercase tracking-wide">
+                <Cpu className="w-4 h-4 text-[#007ACC]" />
+                Executive Intent & Action
+              </div>
+              <p className="text-xs text-[#374151] leading-relaxed">
+                {activeNode.action}
+              </p>
+              <div className="mt-3 p-2 rounded bg-[#F8F9FA] text-[11px] font-mono text-[#4B5563] border border-[#E5E7EB]">
+                {activeNode.reason}
+              </div>
+            </div>
+
+            {/* Box 2: Memory & Stack Impact */}
+            <div className="p-4 rounded-lg border border-[#E5E2DC] bg-[#FFFFFF] shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#1F1F1F] mb-2 uppercase tracking-wide">
+                <Layers className="w-4 h-4 text-[#1B7D5F]" />
+                Memory & Heap Mutation
+              </div>
+              <p className="text-xs text-[#374151] leading-relaxed">
+                {activeNode.memoryImpact}
+              </p>
+              {activeNode.changedVars.length > 0 ? (
+                <div className="mt-3 space-y-1">
+                  {activeNode.changedVars.map(cv => (
+                    <div key={cv.name} className="flex items-center justify-between px-2.5 py-1 rounded bg-[#EBF7F2] text-[#0F4D3A] font-mono text-xs border border-[#D1EDE3]">
+                      <span>Variable <strong>{cv.name}</strong></span>
+                      <span className="font-bold">{JSON.stringify(cv.val)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 p-2 rounded bg-[#F8F9FA] text-[11px] text-[#6B7280]">
+                  No local stack variables modified in this step.
+                </div>
+              )}
+            </div>
+
+            {/* Box 3: Next Predictive Transition */}
+            <div className="p-4 rounded-lg border border-[#E5E2DC] bg-[#FFFFFF] shadow-xs md:col-span-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#1F1F1F] mb-2 uppercase tracking-wide">
+                <TrendingUp className="w-4 h-4 text-[#C4702E]" />
+                Predictive Next Transition
+              </div>
+              <p className="text-xs text-[#374151] leading-relaxed">
+                {activeNode.nextPrediction}
+              </p>
+            </div>
+          </div>
+        </div>
       ) : (
-        /* Loop Iteration Matrix Table View */
+        /* Loop Matrix View */
         <div className="flex-1 p-5 overflow-auto space-y-4">
           <div className="text-[11px] font-sans text-[#6B6B6B] flex items-center justify-between">
-            <span>Every pass through the loop is recorded below. Click any row to jump the debugger to that pass:</span>
-            <span className="font-mono">{loopRecords.length} passes total</span>
+            <span>Passes recorded across all loop cycles. Click any row to jump execution:</span>
+            <span className="font-mono">{loopRecords.length} iterations</span>
           </div>
 
           <table className="w-full text-xs font-mono border-collapse bg-[#FFFFFF] border border-[#E5E2DC] rounded-lg overflow-hidden shadow-xs">
             <thead>
               <tr className="bg-[#F5F5F3] border-b border-[#E5E2DC] text-left text-[11px] text-[#6B6B6B]">
-                <th className="py-2 px-3 font-semibold">Pass #</th>
+                <th className="py-2 px-3 font-semibold">Iteration</th>
                 <th className="py-2 px-3 font-semibold">Step</th>
                 <th className="py-2 px-3 font-semibold">Condition Test</th>
-                <th className="py-2 px-3 font-semibold">Variables State</th>
-                <th className="py-2 px-3 font-semibold">Status</th>
+                <th className="py-2 px-3 font-semibold">Variable State Snapshot</th>
+                <th className="py-2 px-3 font-semibold">Result</th>
               </tr>
             </thead>
             <tbody>
@@ -393,14 +564,14 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
                     }}
                     className={`border-b border-[#F5F5F3] last:border-b-0 cursor-pointer transition-colors ${
                       isActiveRow
-                        ? 'bg-[#F0F7F4] font-bold text-[#0F4D3A]'
+                        ? 'bg-[#EBF3FC] font-bold text-[#004B87]'
                         : isPassed
                         ? 'hover:bg-[#FAFAF8] text-[#1F1F1F]'
                         : 'text-[#8A8780] hover:bg-[#FAFAF8]'
                     }`}
                   >
                     <td className="py-2 px-3 font-bold">
-                      Iteration #{rec.iteration}
+                      #{rec.iteration}
                     </td>
                     <td className="py-2 px-3 text-[#6B6B6B]">
                       Step {rec.stepIndex + 1}
@@ -409,7 +580,7 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                         rec.conditionResult ? 'bg-[#D1EDE3] text-[#0F4D3A]' : 'bg-[#FDE3E3] text-[#A33636]'
                       }`}>
-                        {rec.condition} ➜ {rec.conditionResult ? 'TRUE' : 'FALSE (EXIT)'}
+                        {rec.condition} ➜ {rec.conditionResult ? 'TRUE' : 'FALSE'}
                       </span>
                     </td>
                     <td className="py-2 px-3">
@@ -423,16 +594,16 @@ export const FlowchartViewer: React.FC<FlowchartViewerProps> = ({
                     </td>
                     <td className="py-2 px-3">
                       {isActiveRow ? (
-                        <span className="text-[#1B7D5F] font-bold flex items-center gap-1 text-[10px]">
+                        <span className="text-[#007ACC] font-bold flex items-center gap-1 text-[10px]">
                           ● Current
                         </span>
                       ) : isPassed ? (
                         <span className="text-[#6B6B6B] text-[10px]">
-                          Completed
+                          Passed
                         </span>
                       ) : (
                         <span className="text-[#8A8780] text-[10px]">
-                          Future
+                          Upcoming
                         </span>
                       )}
                     </td>

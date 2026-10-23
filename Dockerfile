@@ -17,12 +17,19 @@ RUN npm run build
 # Stage 2: Production Runtime Environment with Multi-Language Compilers
 FROM node:20-bookworm-slim AS runner
 
-# Install runtime dependencies for Python, C/C++ GCC, and Java JRE
+# Install runtime dependencies for Python with full scientific libraries, C/C++ GCC/G++, and Java JDK
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
+    python3-pip \
+    python3-numpy \
+    python3-scipy \
+    python3-pandas \
+    python3-matplotlib \
+    python3-sympy \
+    build-essential \
     gcc \
     g++ \
-    default-jre-headless \
+    default-jdk \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

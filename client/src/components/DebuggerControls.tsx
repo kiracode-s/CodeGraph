@@ -6,7 +6,8 @@ import {
   SkipForward, 
   ChevronLeft, 
   ChevronRight, 
-  RotateCcw
+  Zap,
+  FastForward
 } from 'lucide-react';
 import { sfx } from '../utils/audio';
 
@@ -23,6 +24,7 @@ interface DebuggerControlsProps {
   onRestart: () => void;
   onStepChange: (stepIndex: number) => void;
   onSpeedChange: (speed: number) => void;
+  onNextBreakpoint?: () => void;
 }
 
 export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
@@ -35,11 +37,11 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
   onPrev,
   onFirst,
   onLast,
-  onRestart,
   onStepChange,
-  onSpeedChange
+  onSpeedChange,
+  onNextBreakpoint
 }) => {
-  const speeds = [0.5, 1, 2, 4];
+  const speeds = [0.5, 1, 2, 5, 10, 20];
   const maxStep = Math.max(0, totalSteps - 1);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,7 +60,7 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
           }}
           disabled={currentStep <= 0}
           className="p-1.5 rounded border border-[#E5E2DC] bg-[#FFFFFF] hover:bg-[#F5F5F3] text-[#1F1F1F] disabled:opacity-35 transition-colors shadow-xs"
-          title="Jump to First step"
+          title="Jump to Start (Home)"
         >
           <SkipBack className="w-4 h-4" />
         </button>
@@ -85,9 +87,9 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
           className={`flex items-center gap-1.5 px-4 py-1.5 rounded text-xs font-sans font-semibold transition-all shadow-xs ${
             isPlaying
               ? 'bg-[#C44545] hover:bg-[#A33636] text-[#FFFFFF]'
-              : 'bg-[#1B7D5F] hover:bg-[#16654D] text-[#FFFFFF]'
+              : 'bg-[#007ACC] hover:bg-[#0062A3] text-[#FFFFFF]'
           } disabled:opacity-35`}
-          title={isPlaying ? 'Pause auto-play (Space)' : 'Auto-play execution (Space)'}
+          title={isPlaying ? 'Pause playback (Space)' : 'Auto-play execution (Space)'}
         >
           {isPlaying ? (
             <>
@@ -109,11 +111,27 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
           }}
           disabled={currentStep >= maxStep}
           className="flex items-center gap-1 px-3 py-1.5 rounded border border-[#E5E2DC] bg-[#FFFFFF] hover:bg-[#F5F5F3] text-xs font-sans font-medium text-[#1F1F1F] disabled:opacity-35 transition-colors shadow-xs"
-          title="Step Forward (Right Arrow)"
+          title="Step Forward (Right Arrow / F10)"
         >
           <span>Next</span>
           <ChevronRight className="w-4 h-4" />
         </button>
+
+        {/* Fast forward to next breakpoint */}
+        {onNextBreakpoint && (
+          <button
+            onClick={() => {
+              sfx.playClick();
+              onNextBreakpoint();
+            }}
+            disabled={currentStep >= maxStep}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-[#E5E2DC] bg-[#FFFFFF] hover:bg-[#F5F5F3] text-xs font-sans font-medium text-[#C4702E] disabled:opacity-35 transition-colors shadow-xs"
+            title="Fast Forward to Next Breakpoint"
+          >
+            <FastForward className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">To Breakpoint</span>
+          </button>
+        )}
 
         <button
           onClick={() => {
@@ -122,7 +140,7 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
           }}
           disabled={currentStep >= maxStep}
           className="p-1.5 rounded border border-[#E5E2DC] bg-[#FFFFFF] hover:bg-[#F5F5F3] text-[#1F1F1F] disabled:opacity-35 transition-colors shadow-xs"
-          title="Jump to Last step"
+          title="Jump to End (End)"
         >
           <SkipForward className="w-4 h-4" />
         </button>
@@ -137,14 +155,14 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
           value={currentStep}
           onChange={handleSliderChange}
           disabled={totalSteps <= 0}
-          className="w-full h-1.5 bg-[#E5E2DC] rounded-lg appearance-none cursor-pointer accent-[#1B7D5F] disabled:opacity-35"
+          className="w-full h-1.5 bg-[#E5E2DC] rounded-lg appearance-none cursor-pointer accent-[#007ACC] disabled:opacity-35"
         />
         <div className="shrink-0 px-2.5 py-1 rounded bg-[#F5F5F3] border border-[#E5E2DC] text-[11px] font-mono font-medium text-[#1F1F1F]">
-          Step <strong className="text-[#1B7D5F]">{totalSteps > 0 ? currentStep + 1 : 0}</strong> of {totalSteps}
+          Step <strong className="text-[#007ACC]">{totalSteps > 0 ? currentStep + 1 : 0}</strong> of {totalSteps}
         </div>
       </div>
 
-      {/* 3. Speed Selector & Keyboard Shortcut Hint */}
+      {/* 3. High-Speed Multipliers */}
       <div className="flex items-center gap-2">
         <div className="flex items-center bg-[#F5F5F3] p-0.5 rounded border border-[#E5E2DC]">
           {speeds.map((s) => (
@@ -154,18 +172,20 @@ export const DebuggerControls: React.FC<DebuggerControlsProps> = ({
                 sfx.playClick();
                 onSpeedChange(s);
               }}
-              className={`px-2 py-0.5 text-[11px] font-mono rounded transition-colors ${
+              className={`px-2 py-0.5 text-[11px] font-mono rounded transition-colors flex items-center gap-0.5 ${
                 speed === s
-                  ? 'bg-[#FFFFFF] font-bold text-[#1F1F1F] shadow-xs'
+                  ? 'bg-[#007ACC] font-bold text-[#FFFFFF] shadow-xs'
                   : 'text-[#6B6B6B] hover:text-[#1F1F1F]'
               }`}
+              title={s === 20 ? 'Turbo Mode (Ultra-fast)' : `${s}x speed`}
             >
-              {s}x
+              {s === 20 && <Zap className="w-2.5 h-2.5 fill-current" />}
+              {s === 20 ? 'Turbo' : `${s}x`}
             </button>
           ))}
         </div>
 
-        <div className="hidden lg:flex items-center gap-1 text-[11px] text-[#8A8780] font-sans">
+        <div className="hidden xl:flex items-center gap-1 text-[11px] text-[#8A8780] font-sans">
           <kbd className="px-1 py-0.5 rounded bg-[#F5F5F3] border border-[#D4D0C8] font-mono text-[10px]">
             ←
           </kbd>

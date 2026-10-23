@@ -73,6 +73,21 @@ for num in numbers:
 
 print("Final Sum:", total)
 `
+    },
+    {
+      name: 'Math & Library Structures',
+      description: 'Using math, collections, and standard library data structures with visual heap tracking',
+      language: 'python',
+      code: `import math
+from collections import Counter
+
+data = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3]
+counts = dict(Counter(data))
+hypot = math.sqrt(3**2 + 4**2)
+
+print("Hypotenuse:", hypot)
+print("Frequencies:", counts)
+`
     }
   ],
 

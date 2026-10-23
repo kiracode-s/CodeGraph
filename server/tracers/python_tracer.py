@@ -33,6 +33,13 @@ class PythonTracer:
         return frame.f_code.co_filename == '<string>'
 
     def format_value(self, val, heap_collector):
+        # Handle NumPy and other library scalar types (int64, float32, bool_, etc.)
+        if hasattr(val, 'item') and callable(getattr(val, 'item')) and not isinstance(val, (dict, list, tuple)):
+            try:
+                val = val.item()
+            except Exception:
+                pass
+
         # Primitives
         if val is None or isinstance(val, (int, float, bool, str)):
             return {
@@ -49,10 +56,51 @@ class PythonTracer:
                 "isReference": False
             }
         
-        # Heap objects: list, tuple, set, dict, custom instance
+        # Heap objects: list, tuple, set, dict, ndarray, custom instance
         obj_id = f"0x{id(val):x}"
         if obj_id not in heap_collector:
             val_type = type(val).__name__
+
+            # NumPy ndarray support
+            if hasattr(val, 'tolist') and callable(getattr(val, 'tolist')):
+                try:
+                    py_list = val.tolist()
+                    heap_collector[obj_id] = {
+                        "id": obj_id,
+                        "type": "array",
+                        "typeName": f"ndarray{getattr(val, 'shape', '')}",
+                        "items": [self.format_value(item, heap_collector) for item in py_list]
+                    }
+                    return {
+                        "type": "reference",
+                        "value": obj_id,
+                        "targetId": obj_id,
+                        "pointsTo": obj_id,
+                        "isReference": True
+                    }
+                except Exception:
+                    pass
+
+            # Pandas Series / DataFrame support
+            if hasattr(val, 'to_dict') and callable(getattr(val, 'to_dict')):
+                try:
+                    py_dict = val.to_dict()
+                    heap_collector[obj_id] = {
+                        "id": obj_id,
+                        "type": "dict",
+                        "typeName": val_type,
+                        "fields": {str(k): self.format_value(v, heap_collector) for k, v in py_dict.items()}
+                    }
+                    return {
+                        "type": "reference",
+                        "value": obj_id,
+                        "targetId": obj_id,
+                        "pointsTo": obj_id,
+                        "isReference": True
+                    }
+                except Exception:
+                    pass
+
             if isinstance(val, (list, tuple)):
                 heap_collector[obj_id] = {
                     "id": obj_id,
@@ -264,4 +312,4 @@ if __name__ == "__main__":
     user_code = sys.stdin.read()
     tracer = PythonTracer(user_code)
     result = tracer.run()
-    print(json.dumps(result))
+    print(json.dumps(result, default=str))

@@ -30,6 +30,8 @@ export const App: React.FC = () => {
   const [isOutputCollapsed, setIsOutputCollapsed] = useState<boolean>(false);
 
   const timerRef = useRef<number | null>(null);
+  // High-speed trace cache for 0ms re-execution
+  const traceCache = useRef<Map<string, ExecutionTrace>>(new Map());
 
   // Switch language preset
   const handleLanguageChange = (newLang: Language) => {
@@ -59,10 +61,22 @@ export const App: React.FC = () => {
     setStatus('idle');
   };
 
-  // Run Visualization
+  // Run Visualization with Instant Cache & Fast Timeout Fallback
   const handleVisualize = async () => {
     setIsLoading(true);
     setStatus('running');
+
+    const cacheKey = `${language}:${code}`;
+    if (traceCache.current.has(cacheKey)) {
+      const cached = traceCache.current.get(cacheKey)!;
+      setTrace(cached);
+      setCurrentStepIndex(0);
+      setIsVisualizing(true);
+      setStatus(cached.status === 'error' ? 'error' : 'visualizing');
+      setIsLoading(false);
+      sfx.playSuccess();
+      return;
+    }
 
     try {
       let executionResult: ExecutionTrace;
@@ -70,18 +84,23 @@ export const App: React.FC = () => {
       if (engineMode === 'backend') {
         try {
           const apiBase = import.meta.env.VITE_API_URL || '';
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5s max backend wait
+
           const res = await fetch(`${apiBase}/api/visualize`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ language, code })
+            body: JSON.stringify({ language, code }),
+            signal: controller.signal
           });
+          clearTimeout(timeoutId);
 
           if (!res.ok) {
             throw new Error(`Server returned ${res.status}`);
           }
           executionResult = await res.json();
         } catch (fetchErr) {
-          console.warn('[CodeTracer] Backend unavailable, switching to browser dry-run engine:', fetchErr);
+          console.warn('[CodeTracer] Fast fallback to browser dry-run engine:', fetchErr);
           const localEngine = new DryRunEngine(language, code);
           executionResult = localEngine.run();
         }
@@ -89,6 +108,9 @@ export const App: React.FC = () => {
         const localEngine = new DryRunEngine(language, code);
         executionResult = localEngine.run();
       }
+
+      // Save to memory cache for instant future lookups
+      traceCache.current.set(cacheKey, executionResult);
 
       setTrace(executionResult);
       setCurrentStepIndex(0);
@@ -131,7 +153,7 @@ export const App: React.FC = () => {
         particleCount: 30,
         spread: 60,
         origin: { y: 0.85 },
-        colors: ['#1B7D5F', '#C4702E', '#3DA385']
+        colors: ['#007ACC', '#C4702E', '#3DA385']
       });
     }
   };
@@ -156,16 +178,32 @@ export const App: React.FC = () => {
     setStatus('completed');
   };
 
+  // Jump to Next Breakpoint for fast debugging through long loops
+  const handleNextBreakpoint = () => {
+    if (!trace?.steps) return;
+    for (let i = currentStepIndex + 1; i < trace.steps.length; i++) {
+      if (breakpoints.includes(trace.steps[i].line)) {
+        setCurrentStepIndex(i);
+        sfx.playStep();
+        return;
+      }
+    }
+    // If no more breakpoints, advance to last step
+    setCurrentStepIndex(trace.steps.length - 1);
+    sfx.playClick();
+    setStatus('completed');
+  };
+
   const handleToggleBreakpoint = (line: number) => {
     setBreakpoints((prev) =>
       prev.includes(line) ? prev.filter((l) => l !== line) : [...prev, line]
     );
   };
 
-  // Autoplay loop timer
+  // Autoplay loop timer with Turbo 20x mode (25ms per step)
   useEffect(() => {
     if (isPlaying && trace?.steps) {
-      const delay = Math.max(200, 1000 / speed);
+      const delay = speed >= 20 ? 25 : Math.max(70, Math.floor(1000 / speed));
       timerRef.current = window.setTimeout(() => {
         if (currentStepIndex < trace.steps.length - 1) {
           const nextIdx = currentStepIndex + 1;
@@ -192,20 +230,26 @@ export const App: React.FC = () => {
     };
   }, [isPlaying, currentStepIndex, trace, speed, breakpoints]);
 
-  // Keyboard controls (Arrow keys and Space)
+  // Keyboard controls (Arrow keys, Space, and F-keys)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'TEXTAREA') return;
 
-      if (e.code === 'Space') {
+      if (e.code === 'Space' || e.key === 'F5') {
         e.preventDefault();
         setIsPlaying((p) => !p);
-      } else if (e.code === 'ArrowRight') {
+      } else if (e.code === 'ArrowRight' || e.key === 'F10') {
         e.preventDefault();
         handleNext();
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault();
         handlePrev();
+      } else if (e.code === 'Home') {
+        e.preventDefault();
+        handleFirst();
+      } else if (e.code === 'End') {
+        e.preventDefault();
+        handleLast();
       }
     };
 
@@ -435,6 +479,7 @@ export const App: React.FC = () => {
           setStatus('visualizing');
         }}
         onSpeedChange={setSpeed}
+        onNextBreakpoint={handleNextBreakpoint}
       />
     </div>
   );

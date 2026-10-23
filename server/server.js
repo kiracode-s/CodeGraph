@@ -171,6 +171,58 @@ async function compileAndCheckGCC(code, isCpp = false) {
   });
 }
 
+// Java compiler & execution check with sandboxed temporary directory
+async function compileAndCheckJava(code) {
+  return new Promise((resolve) => {
+    const tempDir = os.tmpdir();
+    const match = code.match(/(?:public\s+)?class\s+([A-Za-z0-9_]+)/);
+    const className = match ? match[1] : "Main";
+    const subDir = path.join(tempDir, "java_" + Date.now() + "_" + Math.floor(Math.random() * 10000));
+
+    try {
+      fs.mkdirSync(subDir, { recursive: true });
+      const srcFile = path.join(subDir, `${className}.java`);
+      fs.writeFileSync(srcFile, code, "utf-8");
+
+      const compileProc = spawn("javac", [srcFile], { timeout: 5000 });
+      let compileErr = "";
+      compileProc.stderr.on("data", (chunk) => {
+        compileErr += chunk.toString();
+      });
+
+      compileProc.on("close", (exitCode) => {
+        if (exitCode !== 0) {
+          try { fs.rmSync(subDir, { recursive: true, force: true }); } catch {}
+          resolve({ success: false, compilerError: compileErr });
+          return;
+        }
+
+        const runProc = spawn("java", ["-cp", subDir, className], { timeout: 3000 });
+        let output = "";
+        runProc.stdout.on("data", (d) => (output += d.toString()));
+        runProc.on("close", () => {
+          try { fs.rmSync(subDir, { recursive: true, force: true }); } catch {}
+          resolve({ success: true, output });
+        });
+        runProc.on("error", () => {
+          try { fs.rmSync(subDir, { recursive: true, force: true }); } catch {}
+          resolve({ success: true, output: "" });
+        });
+      });
+
+      compileProc.on("error", () => {
+        try { fs.rmSync(subDir, { recursive: true, force: true }); } catch {}
+        resolve({ success: true, skippedCompiler: true });
+      });
+    } catch (e) {
+      resolve({ success: true, skippedCompiler: true });
+    }
+  });
+}
+
+// In-memory cache on server for high-speed sub-millisecond responses
+const serverTraceCache = new Map();
+
 // API: /api/visualize
 app.post("/api/visualize", async (req, res) => {
   const { language = "python", code = "", options = {} } = req.body;
@@ -180,15 +232,19 @@ app.post("/api/visualize", async (req, res) => {
   }
 
   const lang = language.toLowerCase();
+  const cacheKey = `${lang}:${code}`;
+
+  if (serverTraceCache.has(cacheKey)) {
+    return res.json(serverTraceCache.get(cacheKey));
+  }
 
   try {
+    let resultTrace;
+
     if (lang === "python") {
       // Run native Python tracer
-      const trace = await tracePython(code);
-      return res.json(trace);
-    }
-
-    if (lang === "c" || lang === "cpp") {
+      resultTrace = await tracePython(code);
+    } else if (lang === "c" || lang === "cpp") {
       // Step 1: Run dry run execution simulator to generate step-by-step memory/callstack frames
       const engine = new DryRunEngine(lang, code, options);
       const simulation = engine.run();
@@ -196,7 +252,6 @@ app.post("/api/visualize", async (req, res) => {
       // Step 2: In parallel, verify with GCC if available
       const gccResult = await compileAndCheckGCC(code, lang === "cpp");
       if (!gccResult.success && gccResult.compilerError) {
-        // Parse GCC compiler error line
         const lineMatch = gccResult.compilerError.match(/:(\d+):\d+: error:\s*(.+)/);
         const errLine = lineMatch ? parseInt(lineMatch[1], 10) : 1;
         const errMsg = lineMatch ? lineMatch[2] : gccResult.compilerError;
@@ -215,14 +270,42 @@ app.post("/api/visualize", async (req, res) => {
           simulation.steps[simulation.steps.length - 1].stdout = gccResult.output;
         }
       }
+      resultTrace = simulation;
+    } else if (lang === "java") {
+      const engine = new DryRunEngine("java", code, options);
+      const simulation = engine.run();
 
-      return res.json(simulation);
+      const javaResult = await compileAndCheckJava(code);
+      if (!javaResult.success && javaResult.compilerError) {
+        const lineMatch = javaResult.compilerError.match(/:(\d+):\s*error:\s*(.+)/);
+        const errLine = lineMatch ? parseInt(lineMatch[1], 10) : 1;
+        const errMsg = lineMatch ? lineMatch[2] : javaResult.compilerError;
+
+        simulation.error = {
+          type: "JavaCompilerError",
+          message: errMsg,
+          line: errLine,
+          explanation: `javac detected compilation error: ${errMsg}`,
+          suggestion: "Fix the Java syntax or type error indicated by javac."
+        };
+        simulation.status = "error";
+      } else if (javaResult.success && typeof javaResult.output === "string" && javaResult.output.length > 0) {
+        simulation.stdout = javaResult.output;
+        if (simulation.steps && simulation.steps.length > 0) {
+          simulation.steps[simulation.steps.length - 1].stdout = javaResult.output;
+        }
+      }
+      resultTrace = simulation;
+    } else {
+      // JavaScript and other languages
+      const engine = new DryRunEngine(lang, code, options);
+      resultTrace = engine.run();
     }
 
-    // Java, JavaScript, or other languages
-    const engine = new DryRunEngine(lang, code, options);
-    const trace = engine.run();
-    return res.json(trace);
+    if (serverTraceCache.size < 500) {
+      serverTraceCache.set(cacheKey, resultTrace);
+    }
+    return res.json(resultTrace);
   } catch (error) {
     return res.status(500).json({
       language: lang,
