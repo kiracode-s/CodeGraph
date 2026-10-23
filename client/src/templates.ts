@@ -59,6 +59,20 @@ while curr:
 ans = fib(4)
 print("fib(4) =", ans)
 `
+    },
+    {
+      name: 'For Loop & Accumulator',
+      description: 'Step-by-step iteration counter, condition evaluation, and accumulator state changes',
+      language: 'python',
+      code: `numbers = [10, 20, 30, 40]
+total = 0
+
+for num in numbers:
+    total += num
+    print("Added", num, "new total:", total)
+
+print("Final Sum:", total)
+`
     }
   ],
 

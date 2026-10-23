@@ -4,7 +4,7 @@ import { Navbar } from './components/Navbar';
 import { CodeEditor } from './components/CodeEditor';
 import { MemoryViewer } from './components/MemoryViewer';
 import { FlowchartViewer } from './components/FlowchartViewer';
-import { CallStackTree } from './components/CallStackTree';
+import { RecursionTreeViewer } from './components/RecursionTreeViewer';
 import { InfoPanel } from './components/InfoPanel';
 import { DebuggerControls } from './components/DebuggerControls';
 import { Language, ExecutionTrace, StepState } from './types';
@@ -289,7 +289,7 @@ export const App: React.FC = () => {
                 }`}
               >
                 <Activity className="w-3.5 h-3.5 text-[#C4702E]" />
-                <span>Flowchart</span>
+                <span>Flowchart & Loops</span>
               </button>
 
               <button
@@ -304,7 +304,7 @@ export const App: React.FC = () => {
                 }`}
               >
                 <GitBranch className="w-3.5 h-3.5 text-[#569CD6]" />
-                <span>Call Tree</span>
+                <span>Recursion Tree</span>
               </button>
 
               <button
@@ -350,7 +350,15 @@ export const App: React.FC = () => {
               />
             )}
             {activeTab === 'callstack' && (
-              <CallStackTree callStack={currentStep?.callStack || []} />
+              <RecursionTreeViewer
+                steps={trace?.steps || []}
+                currentStepIndex={currentStepIndex}
+                callStack={currentStep?.callStack || []}
+                onSelectStep={(idx) => {
+                  setCurrentStepIndex(idx);
+                  setStatus('visualizing');
+                }}
+              />
             )}
             {activeTab === 'info' && (
               <InfoPanel

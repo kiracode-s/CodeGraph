@@ -161,7 +161,8 @@ class PythonTracer:
             "heap": heap_collector,
             "stdout": current_stdout,
             "stdoutDelta": stdout_delta,
-            "explanation": explanation
+            "explanation": explanation,
+            "returnValue": repr(arg) if event == 'return' else None
         })
 
     def generate_explanation(self, line, event, frame, arg):
@@ -172,15 +173,17 @@ class PythonTracer:
 
         if event == 'call':
             func_name = frame.f_code.co_name
-            action = f"Call function '{func_name}()'"
+            arg_str = ", ".join(f"{k}={v}" for k, v in frame.f_locals.items() if not k.startswith("__"))
+            action = f"Call function '{func_name}({arg_str})'"
             reason = f"Entering scope of function '{func_name}'"
             memory = f"New stack frame allocated for '{func_name}()'"
             next_pred = f"Executing first statement of '{func_name}()'"
         elif event == 'return':
-            action = f"Return from function '{frame.f_code.co_name}()'"
-            reason = f"Returned value: {repr(arg)}"
-            memory = f"Stack frame for '{frame.f_code.co_name}()' will be popped and deallocated"
-            next_pred = "Returning to caller"
+            ret_val = repr(arg)
+            action = f"Return from '{frame.f_code.co_name}()' ➜ {ret_val}"
+            reason = f"Function evaluated and unwinds stack frame, returning {ret_val} to caller"
+            memory = f"Popping stack frame for '{frame.f_code.co_name}()'. Return value passes to caller frame."
+            next_pred = "Returning control to caller"
         elif event == 'exception':
             exc_type, exc_val, _ = arg
             action = f"Exception raised: {exc_type.__name__}"

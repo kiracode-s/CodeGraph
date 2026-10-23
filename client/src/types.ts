@@ -34,6 +34,27 @@ export interface StepExplanation {
   nextPrediction: string;
 }
 
+export interface LoopIterationInfo {
+  loopType: 'for' | 'while' | 'do-while';
+  line: number;
+  iteration: number;
+  condition: string;
+  conditionResult: boolean;
+  loopVariables: Record<string, any>;
+}
+
+export interface RecursionCallInfo {
+  callId: string;
+  parentId?: string | null;
+  funcName: string;
+  args: Record<string, any>;
+  depth: number;
+  startStep: number;
+  returnStep?: number;
+  returnValue?: any;
+  status: 'active' | 'waiting' | 'returned';
+}
+
 export interface StepState {
   step: number;
   line: number;
@@ -45,6 +66,9 @@ export interface StepState {
   stdoutDelta?: string;
   changedVariables?: string[];
   explanation: StepExplanation;
+  returnValue?: any;
+  loopInfo?: LoopIterationInfo;
+  recursionInfo?: RecursionCallInfo;
 }
 
 export interface ExecutionError {
